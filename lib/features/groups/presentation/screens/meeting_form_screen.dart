@@ -10,6 +10,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../data/group_meetings_repository.dart';
 import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de reunião
 class MeetingFormScreen extends ConsumerStatefulWidget {
@@ -76,7 +77,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
           style: CommunityDesign.titleStyle(context),
         ),
       ),
-      body: groupAsync.when(
+      body: ReadableWidth(child: groupAsync.when(
         data: (group) {
           if (group == null) {
             return const Center(child: Text('Grupo não encontrado'));
@@ -183,7 +184,7 @@ class _MeetingFormScreenState extends ConsumerState<MeetingFormScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Erro: $error')),
-      ),
+      )),
     );
   }
 

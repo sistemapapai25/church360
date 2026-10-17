@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Menu de Gestão > Atendimentos: conversas em que o membro pediu uma pessoa
 /// (o Moisés chamou o atendente). Assumir, responder, devolver ao Moisés,
@@ -186,11 +187,11 @@ class _SupportAttendScreenState extends State<SupportAttendScreen> {
                 }),
               ),
       ),
-      body: _loading
+      body: ReadableWidth(child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _openId == null
               ? _buildQueue()
-              : _buildConversation(open),
+              : _buildConversation(open)),
     );
   }
 

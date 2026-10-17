@@ -13,6 +13,7 @@ import '../../../../core/widgets/pearl_fab.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem e gerenciamento de avisos rápidos (Fique por Dentro)
 class QuickNewsListScreen extends ConsumerWidget {
@@ -74,7 +75,8 @@ class QuickNewsListScreen extends ConsumerWidget {
             onRefresh: () async {
               ref.invalidate(allQuickNewsProvider);
             },
-            child: ListView.builder(
+            child: ResponsiveGridList(
+              rowGap: 0,
               padding: const EdgeInsets.all(16),
               itemCount: newsList.length,
               itemBuilder: (context, index) {

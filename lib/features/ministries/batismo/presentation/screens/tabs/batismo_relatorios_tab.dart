@@ -15,6 +15,7 @@ import '../../../domain/baptism_report_data.dart';
 import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
+import '../../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Relatórios do workspace do Batismo.
 ///
@@ -192,6 +193,7 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         children: [
+          ResponsiveGrid(children: [
           _ReportCard(
             icon: AppIcons.group,
             title: 'Relatório da turma',
@@ -231,7 +233,6 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
                         : () => _pickTurma(turmas),
                   ),
           ),
-          const SizedBox(height: 12),
           _ReportCard(
             icon: AppIcons.report,
             title: 'Resumo do ministério',
@@ -258,7 +259,6 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
             ),
             child: _MinistrySummary(report: ministryReport),
           ),
-          const SizedBox(height: 12),
           _ReportCard(
             icon: AppIcons.checklist,
             title: 'Chamada do encontro',
@@ -320,7 +320,6 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
                     ),
             ),
           ),
-          const SizedBox(height: 12),
           _ReportCard(
             icon: AppIcons.report,
             title: 'Frequência da turma',
@@ -360,6 +359,7 @@ class _BatismoRelatoriosTabState extends ConsumerState<BatismoRelatoriosTab> {
                   : _FrequencySummary(report: frequency),
             ),
           ),
+          ]),
         ],
       ),
     );

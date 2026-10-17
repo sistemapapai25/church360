@@ -17,6 +17,7 @@ import '../../../data/baptism_repository.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
 import 'batismo_alunos_tab.dart';
+import '../../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Turmas do workspace do Batismo — a entrada do módulo.
 ///
@@ -285,6 +286,7 @@ class _BatismoTurmasTabState extends ConsumerState<BatismoTurmasTab> {
                 ];
               }
               return [
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final t in visible)
                   _TurmaTile(
                     turma: t,
@@ -299,6 +301,7 @@ class _BatismoTurmasTabState extends ConsumerState<BatismoTurmasTab> {
                         ? () => _confirmDelete(t, counts[t.id] ?? 0)
                         : null,
                   ),
+                ]),
               ];
             },
           ),

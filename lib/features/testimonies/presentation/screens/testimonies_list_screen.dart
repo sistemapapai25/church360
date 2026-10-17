@@ -12,6 +12,7 @@ import '../../../../core/widgets/status_badge.dart';
 import '../../domain/models/testimony.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem e gerenciamento de testemunhos (ADMIN)
 class TestimoniesListScreen extends ConsumerWidget {
@@ -68,7 +69,8 @@ class TestimoniesListScreen extends ConsumerWidget {
             onRefresh: () async {
               ref.invalidate(allTestimoniesProvider);
             },
-            child: ListView.builder(
+            child: ResponsiveGridList(
+              rowGap: 0,
               padding: const EdgeInsets.all(16),
               itemCount: testimonies.length,
               itemBuilder: (context, index) {

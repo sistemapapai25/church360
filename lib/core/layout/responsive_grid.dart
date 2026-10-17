@@ -12,22 +12,31 @@ import 'breakpoints.dart';
 /// Filho com altura zero (um `PermissionGate`/gate que devolveu
 /// `SizedBox.shrink`) não ocupa célula: a grade não fica com buraco no lugar
 /// do item escondido. Por isso não é um `Wrap` com `SizedBox(width:)`.
+///
+/// [rowGap] separa as linhas (padrão: [gap]); 0 quando o card já traz o
+/// próprio espaço embaixo, para o celular ficar igual.
 class ResponsiveGrid extends MultiChildRenderObjectWidget {
   const ResponsiveGrid({
     super.key,
     required super.children,
     this.gap = 12,
+    double? rowGap,
     this.minCardWidth = 320,
-  });
+  }) : rowGap = rowGap ?? gap;
 
   final double gap;
+  final double rowGap;
 
   /// Nenhuma coluna fica mais estreita que isto.
   final double minCardWidth;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      RenderResponsiveGrid(gap: gap, minCardWidth: minCardWidth);
+      RenderResponsiveGrid(
+        gap: gap,
+        rowGap: rowGap,
+        minCardWidth: minCardWidth,
+      );
 
   @override
   void updateRenderObject(
@@ -36,6 +45,7 @@ class ResponsiveGrid extends MultiChildRenderObjectWidget {
   ) {
     renderObject
       ..gap = gap
+      ..rowGap = rowGap
       ..minCardWidth = minCardWidth;
   }
 }
@@ -46,14 +56,25 @@ class RenderResponsiveGrid extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _GridParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _GridParentData> {
-  RenderResponsiveGrid({required double gap, required double minCardWidth})
-    : _gap = gap,
-      _minCardWidth = minCardWidth;
+  RenderResponsiveGrid({
+    required double gap,
+    required double rowGap,
+    required double minCardWidth,
+  }) : _gap = gap,
+       _rowGap = rowGap,
+       _minCardWidth = minCardWidth;
 
   double _gap;
   set gap(double v) {
     if (v == _gap) return;
     _gap = v;
+    markNeedsLayout();
+  }
+
+  double _rowGap;
+  set rowGap(double v) {
+    if (v == _rowGap) return;
+    _rowGap = v;
     markNeedsLayout();
   }
 
@@ -90,7 +111,7 @@ class RenderResponsiveGrid extends RenderBox
           : (child..layout(cell, parentUsesSize: true)).size;
       if (size.height > 0) {
         if (col == cols) {
-          y += rowHeight + _gap;
+          y += rowHeight + _rowGap;
           rowHeight = 0;
           col = 0;
         }

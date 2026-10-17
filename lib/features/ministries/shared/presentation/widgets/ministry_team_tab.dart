@@ -10,6 +10,7 @@ import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import 'ministry_member_actions.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Equipe do workspace: quem toca o ministério — e o que dá para fazer
 /// com essa lista.
@@ -143,22 +144,26 @@ class _MinistryTeamTabState extends ConsumerState<MinistryTeamTab> {
                 ),
               if (leaders.isNotEmpty) ...[
                 _SectionLabel('Liderança (${leaders.length})'),
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final m in leaders)
                   _TeamMemberTile(
                     member: m,
                     onEditRole: canManage ? () => _editRole(m) : null,
                     onRemove: canManage ? () => _remove(m) : null,
                   ),
+                ]),
                 const SizedBox(height: 20),
               ],
               if (rest.isNotEmpty) ...[
                 _SectionLabel('Membros (${rest.length})'),
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final m in rest)
                   _TeamMemberTile(
                     member: m,
                     onEditRole: canManage ? () => _editRole(m) : null,
                     onRemove: canManage ? () => _remove(m) : null,
                   ),
+                ]),
               ],
             ],
           ),

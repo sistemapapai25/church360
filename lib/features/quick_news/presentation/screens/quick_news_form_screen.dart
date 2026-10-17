@@ -13,6 +13,7 @@ import '../../../../core/utils/storage_upload_path.dart';
 import '../providers/quick_news_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário para criar/editar avisos rápidos
 class QuickNewsFormScreen extends ConsumerStatefulWidget {
@@ -272,7 +273,7 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -402,7 +403,7 @@ class _QuickNewsFormScreenState extends ConsumerState<QuickNewsFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

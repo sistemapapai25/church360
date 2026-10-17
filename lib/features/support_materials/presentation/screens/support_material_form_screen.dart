@@ -13,6 +13,7 @@ import '../../../../core/widgets/file_upload_widget.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../widgets/entity_selector_dialog.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de material de apoio
 class SupportMaterialFormScreen extends ConsumerStatefulWidget {
@@ -401,7 +402,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -498,7 +499,7 @@ class _SupportMaterialFormScreenState extends ConsumerState<SupportMaterialFormS
             _buildLinksSection(),
           ],
         ),
-      ),
+      )),
     );
   }
 

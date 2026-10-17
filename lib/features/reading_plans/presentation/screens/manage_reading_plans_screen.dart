@@ -10,6 +10,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../domain/models/reading_plan.dart';
 import '../providers/reading_plans_provider.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 class ManageReadingPlansScreen extends ConsumerWidget {
   const ManageReadingPlansScreen({super.key});
@@ -108,10 +109,10 @@ class ManageReadingPlansScreen extends ConsumerWidget {
               ref.invalidate(allReadingPlansProvider);
               ref.invalidate(activeReadingPlansProvider);
             },
-            child: ListView.separated(
+            child: ResponsiveGridList(
               padding: const EdgeInsets.all(16),
               itemCount: plans.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              gap: 12,
               itemBuilder: (context, index) {
                 final plan = plans[index];
                 final cs = Theme.of(context).colorScheme;

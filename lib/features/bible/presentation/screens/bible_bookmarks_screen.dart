@@ -7,6 +7,7 @@ import '../providers/bible_provider.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 class BibleBookmarksScreen extends ConsumerWidget {
   const BibleBookmarksScreen({super.key});
@@ -42,10 +43,10 @@ class BibleBookmarksScreen extends ConsumerWidget {
                 );
               }
 
-              return ListView.separated(
+              return ResponsiveGridList(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 itemCount: bookmarks.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                gap: 10,
                 itemBuilder: (context, index) {
                   final bookmark = bookmarks[index];
                   return GlassCard(

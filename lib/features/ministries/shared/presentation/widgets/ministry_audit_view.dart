@@ -9,6 +9,7 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../domain/ministry_stock.dart';
 import '../providers/ministry_stock_providers.dart';
 import 'ministry_stock_sheets.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Lado Auditoria da aba Financeiro (canvas tela 7): quem fez o quê no
 /// Caixa e no Estoque, com o antes e o depois.
@@ -191,7 +192,9 @@ class _MinistryAuditViewState extends ConsumerState<MinistryAuditView> {
                     style: CommunityDesign.metaStyle(context),
                   ),
                 ),
+              ResponsiveGrid(rowGap: 0, children: [
               for (final e in visible) _AuditCard(entry: e),
+              ]),
             ],
           ),
         );

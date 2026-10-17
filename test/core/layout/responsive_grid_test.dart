@@ -4,7 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 Widget _card(String k) => SizedBox(key: ValueKey(k), height: 60);
 
-Future<void> _pump(WidgetTester tester, double width, List<Widget> kids) {
+Future<void> _pump(
+  WidgetTester tester,
+  double width,
+  List<Widget> kids, {
+  double? rowGap,
+}) {
   tester.view.physicalSize = Size(width, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -15,7 +20,7 @@ Future<void> _pump(WidgetTester tester, double width, List<Widget> kids) {
         alignment: Alignment.topLeft,
         child: SizedBox(
           width: width,
-          child: ResponsiveGrid(children: kids),
+          child: ResponsiveGrid(rowGap: rowGap, children: kids),
         ),
       ),
     ),
@@ -55,6 +60,23 @@ void main() {
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('d'))),
       const Offset(0, 72),
+    );
+  });
+
+  testWidgets('rowGap 0: linhas coladas, colunas com gap', (tester) async {
+    await _pump(tester, 1000, [
+      _card('a'),
+      _card('b'),
+      _card('c'),
+      _card('d'),
+    ], rowGap: 0);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('b'))),
+      Offset((1000 - 24) / 3 + 12, 0),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('d'))),
+      const Offset(0, 60),
     );
   });
 

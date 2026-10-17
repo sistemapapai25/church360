@@ -5,6 +5,7 @@ import '../providers/kids_providers.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela para selecionar qual criança gerenciar
 /// Acessada via /kids-registration (botão do menu principal)
@@ -77,7 +78,7 @@ class KidsSelectChildScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: childrenAsync.when(
+      body: ReadableWidth(child: childrenAsync.when(
         data: (children) {
           if (children.isEmpty) {
             return Center(
@@ -202,7 +203,7 @@ class KidsSelectChildScreen extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
         ),
-      ),
+      )),
     );
   }
 

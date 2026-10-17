@@ -5,6 +5,7 @@ import '../../data/duplicates_repository.dart';
 import '../../domain/models/dismissed_pair.dart';
 import '../../domain/models/duplicate_group.dart';
 import '../providers/duplicates_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de vincular cadastros.
 ///
@@ -30,9 +31,9 @@ class DuplicateAccountsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: const TabBarView(
+        body: ReadableWidth(child: const TabBarView(
           children: [_GroupsTab(), _DismissedTab()],
-        ),
+        )),
       ),
     );
   }

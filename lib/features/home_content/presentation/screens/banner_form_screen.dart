@@ -11,6 +11,7 @@ import '../../../reading_plans/presentation/providers/reading_plans_provider.dar
 import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário para criar/editar banner
 class BannerFormScreen extends ConsumerStatefulWidget {
@@ -321,7 +322,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
             ),
         ],
       ),
-      body: _isLoading
+      body: ReadableWidth(child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -503,7 +504,7 @@ class _BannerFormScreenState extends ConsumerState<BannerFormScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

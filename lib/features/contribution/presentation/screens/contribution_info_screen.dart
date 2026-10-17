@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/contribution_provider.dart';
 import '../../domain/models/contribution_info.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de visualização de informações de contribuição (para usuários)
 class ContributionInfoScreen extends ConsumerWidget {
@@ -68,7 +69,7 @@ class ContributionInfoScreen extends ConsumerWidget {
           ],
         ),
       ),
-      body: contributionInfoAsync.when(
+      body: ReadableWidth(child: contributionInfoAsync.when(
         data: (info) {
           if (info == null) {
             final cs = Theme.of(context).colorScheme;
@@ -203,7 +204,7 @@ class ContributionInfoScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

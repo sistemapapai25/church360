@@ -16,6 +16,7 @@ import '../providers/church_info_provider.dart';
 import '../../domain/models/church_info.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário para editar informações da igreja
 class ChurchInfoFormScreen extends ConsumerStatefulWidget {
@@ -359,7 +360,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
     if (churchInfoState.isLoading && !_dataLoaded) {
       return Scaffold(
         backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-        body: const Center(child: CircularProgressIndicator()),
+        body: ReadableWidth(child: const Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -404,7 +405,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -614,7 +615,7 @@ class _ChurchInfoFormScreenState extends ConsumerState<ChurchInfoFormScreen> {
             const SizedBox(height: 32),
           ],
         ),
-      ),
+      )),
     );
   }
 

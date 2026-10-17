@@ -9,6 +9,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de Notícias (usa os mesmos dados de Eventos)
 class NewsScreen extends ConsumerWidget {
@@ -131,7 +132,8 @@ class NewsScreen extends ConsumerWidget {
               onRefresh: () async {
                 ref.invalidate(recentNewsProvider);
               },
-              child: ListView.builder(
+              child: ResponsiveGridList(
+                rowGap: 0,
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
                 itemCount: sortedEvents.length,
                 itemBuilder: (context, index) {

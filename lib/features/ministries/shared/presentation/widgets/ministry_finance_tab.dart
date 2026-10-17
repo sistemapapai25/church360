@@ -18,6 +18,7 @@ import '../providers/ministry_stock_providers.dart';
 import 'ministry_audit_view.dart';
 import 'ministry_finance_form_sheet.dart';
 import 'ministry_stock_view.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Financeiro do workspace: o caixa do departamento.
 ///
@@ -451,6 +452,7 @@ class _MinistryFinanceBodyState extends ConsumerState<_MinistryFinanceBody> {
                 ),
               if (pendentes.isNotEmpty) ...[
                 _SectionLabel('Aguardando aprovação (${pendentes.length})'),
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final l in pendentes)
                   _LancamentoTile(
                     lancamento: l,
@@ -474,10 +476,12 @@ class _MinistryFinanceBodyState extends ConsumerState<_MinistryFinanceBody> {
                         ? () => _excluir(l)
                         : null,
                   ),
+                ]),
                 const SizedBox(height: 20),
               ],
               if (demais.isNotEmpty) ...[
                 _SectionLabel('Movimentação (${demais.length})'),
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final l in demais)
                   _LancamentoTile(
                     lancamento: l,
@@ -486,6 +490,7 @@ class _MinistryFinanceBodyState extends ConsumerState<_MinistryFinanceBody> {
                         ? () => _excluir(l)
                         : null,
                   ),
+                ]),
               ],
             ],
           ),

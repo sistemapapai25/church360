@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/community_design.dart';
 import '../providers/contribution_provider.dart';
 import '../../domain/models/contribution_info.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de gerenciamento de informações de contribuição (para administradores)
 class ManageContributionScreen extends ConsumerStatefulWidget {
@@ -158,7 +159,7 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
             ),
         ],
       ),
-      body: contributionInfoAsync.when(
+      body: ReadableWidth(child: contributionInfoAsync.when(
         data: (info) {
           // Carregar dados apenas uma vez
           if (_contributionInfoId == null && info != null) {
@@ -381,7 +382,7 @@ class _ManageContributionScreenState extends ConsumerState<ManageContributionScr
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

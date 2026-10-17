@@ -10,6 +10,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem de pedidos de oração
 class PrayerRequestsListScreen extends ConsumerStatefulWidget {
@@ -158,7 +159,8 @@ class _PrayerRequestsListScreenState
             );
           }
 
-          return ListView.builder(
+          return ResponsiveGridList(
+            rowGap: 0,
             padding: const EdgeInsets.all(16),
             itemCount: prayerRequests.length,
             itemBuilder: (context, index) {

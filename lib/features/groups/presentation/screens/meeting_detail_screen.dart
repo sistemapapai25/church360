@@ -15,6 +15,7 @@ import '../providers/meetings_provider.dart';
 import '../providers/groups_provider.dart' as groups_providers;
 import '../../domain/models/group_meeting.dart';
 import '../../../members/presentation/providers/members_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de detalhes da reunião
 class MeetingDetailScreen extends ConsumerWidget {
@@ -75,7 +76,7 @@ class MeetingDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: meetingAsync.when(
+      body: ReadableWidth(child: meetingAsync.when(
         data: (meeting) {
           if (meeting == null) {
             return const Center(child: Text('Reunião não encontrada'));
@@ -101,7 +102,7 @@ class MeetingDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
     return ViewOnlyScope(enabled: !fromDashboard, child: page);
   }

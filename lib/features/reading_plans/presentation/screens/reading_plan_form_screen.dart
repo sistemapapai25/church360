@@ -9,6 +9,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../domain/models/reading_plan.dart';
 import '../providers/reading_plans_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class _PlanModuleDraft {
   final TextEditingController titleController;
@@ -279,7 +280,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
             ),
         ],
       ),
-      body: _isLoading
+      body: ReadableWidth(child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -576,7 +577,7 @@ class _ReadingPlanFormScreenState extends ConsumerState<ReadingPlanFormScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 }

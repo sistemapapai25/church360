@@ -14,6 +14,7 @@ import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de Inscrição Kids (Área dos Pais)
 /// Aqui os pais podem:
@@ -127,7 +128,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
           ],
         ),
       ),
-      body: TabBarView(
+      body: ReadableWidth(child: TabBarView(
         controller: _tabController,
         children: [
           _CheckInTab(childId: widget.childId),
@@ -135,7 +136,7 @@ class _KidsRegistrationScreenState extends ConsumerState<KidsRegistrationScreen>
           _ProfileTab(childId: widget.childId),
           _LessonsTab(childId: widget.childId),
         ],
-      ),
+      )),
     );
   }
 }
@@ -248,7 +249,7 @@ class _GuardiansTab extends ConsumerWidget {
           icon: Icons.add,
         ),
       ),
-      body: guardiansAsync.when(
+      body: ReadableWidth(child: guardiansAsync.when(
         data: (guardians) {
           if (guardians.isEmpty) {
             return Center(
@@ -342,7 +343,7 @@ class _GuardiansTab extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Erro: $err')),
-      ),
+      )),
     );
   }
 }

@@ -13,6 +13,7 @@ import '../../../../shared/domain/ministry_contact.dart';
 import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
+import '../../../../../../core/layout/responsive_grid.dart';
 
 // ---------------------------------------------------------------------------
 // Peças puras — ficam fora do widget para poderem ser testadas sem tela.
@@ -467,6 +468,7 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
                   hasTurmas: turmas.isNotEmpty,
                 )
               else
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final s in visible)
                   _StudentRow(
                     student: s,
@@ -474,6 +476,7 @@ class _BatismoWhatsAppTabState extends ConsumerState<BatismoWhatsAppTab> {
                         ? () => _sendToOne(s, ministryName)
                         : null,
                   ),
+                ]),
             ],
           ),
         );

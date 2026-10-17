@@ -12,6 +12,7 @@ import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de presença/check-in de um culto
 class WorshipAttendanceScreen extends ConsumerStatefulWidget {
@@ -119,7 +120,7 @@ class _WorshipAttendanceScreenState
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           // Header com informações do culto
           serviceAsync.when(
@@ -357,7 +358,7 @@ class _WorshipAttendanceScreenState
           ),
           ],
         ],
-      ),
+      )),
     );
   }
 }

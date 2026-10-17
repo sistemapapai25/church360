@@ -10,6 +10,7 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
 import '../../domain/ministry_contact.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba WhatsApp do workspace: falar com quem está na equipe do ministério.
 ///
@@ -209,6 +210,7 @@ class _MinistryWhatsAppTabState extends ConsumerState<MinistryWhatsAppTab> {
                     style: CommunityDesign.metaStyle(context),
                   ),
                 ),
+              ResponsiveGrid(rowGap: 0, children: [
               for (final member in visible)
                 _MemberRow(
                   member: member,
@@ -216,6 +218,7 @@ class _MinistryWhatsAppTabState extends ConsumerState<MinistryWhatsAppTab> {
                       ? () => _sendToOne(member, ministryName)
                       : null,
                 ),
+              ]),
             ],
           ),
         );

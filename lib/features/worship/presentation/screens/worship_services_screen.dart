@@ -8,6 +8,7 @@ import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem de cultos
 class WorshipServicesScreen extends ConsumerWidget {
@@ -72,7 +73,8 @@ class WorshipServicesScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.builder(
+          return ResponsiveGridList(
+            rowGap: 0,
             padding: const EdgeInsets.all(16),
             itemCount: services.length,
             itemBuilder: (context, index) {

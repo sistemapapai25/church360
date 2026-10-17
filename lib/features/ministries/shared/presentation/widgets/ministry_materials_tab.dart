@@ -9,6 +9,7 @@ import '../../../../courses/presentation/turma/widgets/turma_sheet.dart';
 import '../../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../support_materials/domain/models/support_material_link.dart';
 import '../../../../support_materials/presentation/providers/support_materials_provider.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Materiais: o Material de Apoio vinculado ao ministério (manuais,
 /// cartilhas, doutrina).
@@ -84,6 +85,7 @@ class MinistryMaterialsTab extends ConsumerWidget {
                 message: 'Nenhum material deste ministério ainda.',
               ),
             ),
+          ResponsiveGrid(rowGap: 0, children: [
           for (final m in materials)
             TurmaMaterialCard(
               key: ValueKey('ministry-material-${m.id}'),
@@ -93,6 +95,7 @@ class MinistryMaterialsTab extends ConsumerWidget {
                 builder: (_) => TurmaMaterialReadSheet(material: m),
               ),
             ),
+          ]),
         ],
       ),
     );

@@ -10,6 +10,7 @@ import '../../../../core/widgets/glass_card.dart';
 
 import '../providers/church_info_provider.dart';
 import '../../domain/models/church_info.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de informações da igreja
 class ChurchInfoScreen extends ConsumerWidget {
@@ -79,7 +80,7 @@ class ChurchInfoScreen extends ConsumerWidget {
           centerTitle: false,
           toolbarHeight: 64,
         ),
-        body: churchInfoAsync.when(
+        body: ReadableWidth(child: churchInfoAsync.when(
           data: (churchInfo) {
             if (churchInfo == null) {
               return Center(
@@ -222,7 +223,7 @@ class ChurchInfoScreen extends ConsumerWidget {
               ],
             ),
           ),
-        ),
+        )),
       ),
     );
   }

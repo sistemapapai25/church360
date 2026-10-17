@@ -10,6 +10,7 @@ import '../../../../core/widgets/status_badge.dart';
 
 import '../providers/prayer_request_provider.dart';
 import '../../domain/models/prayer_request.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de detalhes do pedido de oração
 class PrayerRequestDetailScreen extends ConsumerStatefulWidget {
@@ -253,7 +254,7 @@ class _PrayerRequestDetailScreenState
           ),
         ],
       ),
-      body: prayerRequestAsync.when(
+      body: ReadableWidth(child: prayerRequestAsync.when(
         data: (prayerRequest) {
           if (prayerRequest == null) {
             return const Center(child: Text('Pedido não encontrado'));
@@ -382,7 +383,7 @@ class _PrayerRequestDetailScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) =>
             Center(child: Text('Erro ao carregar pedido: $error')),
-      ),
+      )),
       bottomNavigationBar: hasUserPrayedAsync.when(
         data: (hasUserPrayed) => SafeArea(
           child: Padding(

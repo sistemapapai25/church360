@@ -7,6 +7,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/models/bible_lexeme.dart';
 import '../providers/bible_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class BibleLexiconEditorScreen extends ConsumerStatefulWidget {
   final String? initialQuery;
@@ -237,7 +238,7 @@ class _BibleLexiconEditorScreenState
           ],
         ),
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
@@ -333,7 +334,7 @@ class _BibleLexiconEditorScreenState
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 }

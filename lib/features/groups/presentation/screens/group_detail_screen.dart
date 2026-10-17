@@ -23,6 +23,7 @@ import '../../../support_materials/domain/models/support_material.dart';
 import '../../../support_materials/domain/models/support_material_link.dart';
 import '../../../courses/presentation/turma/tabs/turma_materiais_tab.dart';
 import '../../../courses/presentation/turma/widgets/turma_sheet.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de detalhes do grupo
 class GroupDetailScreen extends ConsumerWidget {
@@ -88,7 +89,7 @@ class GroupDetailScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: groupAsync.when(
+      body: ReadableWidth(child: groupAsync.when(
         data: (group) {
           if (group == null) {
             return const Center(child: Text('Grupo não encontrado'));
@@ -120,7 +121,7 @@ class GroupDetailScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
     return ViewOnlyScope(enabled: !fromDashboard, child: page);
   }
@@ -372,7 +373,7 @@ class _MembersTab extends ConsumerWidget {
     final membersAsync = ref.watch(groupMembersProvider(groupId));
 
     return Scaffold(
-      body: membersAsync.when(
+      body: ReadableWidth(child: membersAsync.when(
         data: (members) {
           if (members.isEmpty) {
             return Center(
@@ -472,7 +473,7 @@ class _MembersTab extends ConsumerWidget {
             textAlign: TextAlign.center,
           ),
         ),
-      ),
+      )),
       floatingActionButton: GroupPermissionGate(
         groupId: groupId,
         permission: 'groups.manage_members',

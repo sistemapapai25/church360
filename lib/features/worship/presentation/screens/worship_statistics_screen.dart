@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../providers/worship_provider.dart';
 import '../../domain/models/worship_service.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de estatísticas de cultos
 class WorshipStatisticsScreen extends ConsumerStatefulWidget {
@@ -50,7 +51,7 @@ class _WorshipStatisticsScreenState
           style: CommunityDesign.titleStyle(context),
         ),
       ),
-      body: servicesAsync.when(
+      body: ReadableWidth(maxWidth: 1200, child: servicesAsync.when(
         data: (allServices) {
           // Filtra pelo período, do início (inclusive) até hoje: culto
           // futuro ainda não tem presença e só puxaria a média para baixo.
@@ -126,7 +127,7 @@ class _WorshipStatisticsScreenState
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

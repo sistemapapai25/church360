@@ -11,6 +11,7 @@ import '../providers/groups_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../domain/models/group.dart';
 import '../../../permissions/providers/permissions_providers.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de grupo (criar/editar)
 class GroupFormScreen extends ConsumerStatefulWidget {
@@ -241,7 +242,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
           style: CommunityDesign.titleStyle(context),
         ),
       ),
-      body: _isLoading && widget.groupId != null
+      body: ReadableWidth(child: _isLoading && widget.groupId != null
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
@@ -461,7 +462,7 @@ class _GroupFormScreenState extends ConsumerState<GroupFormScreen> {
                   ),
                 ],
               ),
-            ),
+            )),
     );
   }
 

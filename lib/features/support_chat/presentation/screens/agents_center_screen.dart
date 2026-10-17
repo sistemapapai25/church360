@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/models/support_agent.dart';
 import '../providers/agents_providers.dart';
 import '../widgets/universal_support_chat.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class AgentsCenterScreen extends ConsumerWidget {
   const AgentsCenterScreen({super.key});
@@ -16,7 +17,7 @@ class AgentsCenterScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Agentes IA'),
       ),
-      body: visibleAgentsAsync.when(
+      body: ReadableWidth(child: visibleAgentsAsync.when(
         data: (agents) {
           // Show all agents regardless of ID validity (backend handles fallbacks)
           final visible = agents;
@@ -76,7 +77,7 @@ class AgentsCenterScreen extends ConsumerWidget {
             ),
           );
         },
-      ),
+      )),
     );
   }
 

@@ -7,6 +7,7 @@ import 'tag_form_screen.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../widgets/tag_usage_help.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem de tags
 class TagsListScreen extends ConsumerWidget {
@@ -70,7 +71,8 @@ class TagsListScreen extends ConsumerWidget {
                   onRefresh: () async {
                     ref.invalidate(allTagsProvider);
                   },
-                  child: ListView.builder(
+                  child: ResponsiveGridList(
+                    rowGap: 0,
                     padding: const EdgeInsets.all(16),
                     itemCount: tags.length,
                     itemBuilder: (context, index) {

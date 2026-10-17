@@ -10,6 +10,7 @@ import '../data/praise_repository.dart';
 import 'louvores_tab.dart';
 import 'praise_setlists_view.dart';
 import 'providers/praise_providers.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Repertórios que outro ministério mandou para [ministryId] (canvas, tela
 /// 11). Só leitura: sem Biblioteca e sem "Novo repertório" — o destinatário
@@ -65,8 +66,10 @@ class PraiseReceivedView extends ConsumerWidget {
                       'Quando um ministério de louvor publicar um repertório '
                       'para este ministério, ele aparece aqui.',
                 ),
+              ResponsiveGrid(rowGap: 0, children: [
               for (final s in list)
                 _ReceivedCard(ministryId: ministryId, setlist: s),
+              ]),
             ],
           ),
         );

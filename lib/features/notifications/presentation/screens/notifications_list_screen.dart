@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/notification.dart';
 import '../providers/notification_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class NotificationsListScreen extends ConsumerStatefulWidget {
   const NotificationsListScreen({super.key});
@@ -26,7 +27,7 @@ class _NotificationsListScreenState
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           // Header com título e ações
           Container(
@@ -229,7 +230,7 @@ class _NotificationsListScreenState
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 }
