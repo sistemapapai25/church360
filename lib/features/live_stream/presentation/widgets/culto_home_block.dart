@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/breakpoints.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../worship/presentation/widgets/presence_reaction_panel.dart';
 import '../../domain/models/current_culto.dart';
@@ -53,6 +54,12 @@ class _CultoHomeBlockState extends ConsumerState<CultoHomeBlock> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(context, constraints.maxWidth),
+    );
+  }
+
+  Widget _build(BuildContext context, double available) {
     final culto = ref.watch(currentCultoProvider).valueOrNull;
     if (culto == null || !culto.isLive) {
       _expanded = null;
@@ -61,8 +68,10 @@ class _CultoHomeBlockState extends ConsumerState<CultoHomeBlock> {
 
     final key = _key(culto);
     final minimized = ref.watch(cultoBlockMinimizedProvider) == key;
-    // Mesma largura de referência do banner (clamp 480) e proporção 16:9.
-    final width = (MediaQuery.sizeOf(context).width - 32).clamp(0.0, 480.0);
+    // Mesma largura do banner: clamp 480, e no PC a coluna inteira dele.
+    final width = context.breakpoint == Breakpoint.expanded
+        ? available - 32
+        : (available - 32).clamp(0.0, 480.0);
     final theme = Theme.of(context);
     final pillColor = culto.hasStream ? Colors.red : theme.colorScheme.primary;
     final pill = _Pill(
