@@ -11,6 +11,7 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Escala do workspace: quem está escalado, por evento.
 ///
@@ -145,7 +146,9 @@ class _MinistryScaleTabState extends ConsumerState<MinistryScaleTab> {
                   style: CommunityDesign.metaStyle(context),
                 ),
                 const SizedBox(height: 10),
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final group in groups) _EventScaleCard(group: group),
+                ]),
               ],
               if (canManage) ...[
                 const SizedBox(height: 16),

@@ -11,6 +11,7 @@ import '../../data/ministry_routine_repository.dart';
 import '../../domain/ministry_routine.dart';
 import '../providers/ministry_routine_providers.dart';
 import 'ministry_routine_screens.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Rotina: o checklist pré, durante e pós-culto (Ficha 3 do Diaconato),
 /// que qualquer ministério pode ligar na engrenagem.
@@ -194,6 +195,7 @@ class MinistryRoutineTab extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: Text('Nenhuma rotina aberta ainda.', style: meta),
             ),
+          ResponsiveGrid(rowGap: 0, children: [
           for (final r in runs)
             _RunCard(
               run: r,
@@ -207,6 +209,7 @@ class MinistryRoutineTab extends ConsumerWidget {
                 invalidateMinistryRoutine(ref, ministryId);
               },
             ),
+          ]),
           if (missed.isNotEmpty) ...[
             const SizedBox(height: 20),
             Text(

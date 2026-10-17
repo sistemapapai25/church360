@@ -12,6 +12,7 @@ import '../../../domain/models/baptism_student.dart';
 import '../../../domain/models/baptism_turma.dart';
 import '../../providers/baptism_providers.dart';
 import '../../widgets/baptism_checklist_items_sheet.dart';
+import '../../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Checklist do workspace do Batismo.
 ///
@@ -385,6 +386,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                           : 'Nenhum aluno bate com a busca.',
                     )
                   else
+                    ResponsiveGrid(rowGap: 0, children: [
                     for (final p in visible)
                       _StudentChecklistCard(
                         progress: p,
@@ -400,6 +402,7 @@ class _BatismoChecklistTabState extends ConsumerState<BatismoChecklistTab> {
                             _toggle(student: p.student, item: item, done: done),
                         onCompleteAll: () => _completeAll(p),
                       ),
+                    ]),
                 ],
               ],
             ],

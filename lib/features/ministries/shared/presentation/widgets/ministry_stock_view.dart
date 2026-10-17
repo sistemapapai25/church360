@@ -9,6 +9,7 @@ import '../../../../../core/widgets/glass_card.dart';
 import '../../domain/ministry_stock.dart';
 import '../providers/ministry_stock_providers.dart';
 import 'ministry_stock_sheets.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 const _kAll = '\u0000todos';
 const _kLow = '\u0000baixo';
@@ -178,12 +179,14 @@ class _MinistryStockViewState extends ConsumerState<MinistryStockView> {
                     )
                   else if (visible.isEmpty)
                     const _Empty('Nenhum item bate com esse filtro.'),
+                  ResponsiveGrid(rowGap: 0, children: [
                   for (final i in visible)
                     _StockItemCard(
                       item: i,
                       canManage: widget.canManage,
                       onTap: () => _open(i.id),
                     ),
+                  ]),
                 ],
               ),
             ),

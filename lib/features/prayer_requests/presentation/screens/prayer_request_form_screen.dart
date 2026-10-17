@@ -8,6 +8,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário para criar/editar pedido de oração
 class PrayerRequestFormScreen extends ConsumerStatefulWidget {
@@ -162,7 +163,7 @@ class _PrayerRequestFormScreenState
           style: CommunityDesign.titleStyle(context),
         ),
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -282,7 +283,7 @@ class _PrayerRequestFormScreenState
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

@@ -10,6 +10,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class ReadingPlanModuleScreen extends ConsumerStatefulWidget {
   final String planId;
@@ -210,7 +211,7 @@ class _ReadingPlanModuleScreenState
           ],
         ),
       ),
-      body: planAsync.when(
+      body: ReadableWidth(child: planAsync.when(
         data: (plan) {
           if (plan == null) {
             return Center(
@@ -353,7 +354,7 @@ class _ReadingPlanModuleScreenState
             ],
           ),
         ),
-      ),
+      )),
       bottomNavigationBar: planAsync.when(
         data: (plan) {
           if (plan == null) return null;

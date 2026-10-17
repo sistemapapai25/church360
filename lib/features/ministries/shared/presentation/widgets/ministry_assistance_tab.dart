@@ -15,6 +15,7 @@ import '../../data/ministry_routine_repository.dart';
 import '../../domain/ministry_assistance.dart';
 import '../providers/ministry_stock_providers.dart';
 import 'ministry_routine_tab.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 final ministryAssistanceRepositoryProvider =
     Provider<MinistryAssistanceRepository>(
@@ -129,6 +130,7 @@ class _MinistryAssistanceTabState extends ConsumerState<MinistryAssistanceTab> {
                             style: meta,
                           ),
                         ),
+                      ResponsiveGrid(rowGap: 0, children: [
                       for (final f in list)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
@@ -169,6 +171,7 @@ class _MinistryAssistanceTabState extends ConsumerState<MinistryAssistanceTab> {
                             ),
                           ),
                         ),
+                      ]),
                     ],
                   );
                 },

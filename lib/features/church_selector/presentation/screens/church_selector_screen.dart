@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_restart_scope.dart';
 import '../../../branches/domain/models/tenant_unit.dart';
 import '../../../branches/presentation/providers/branches_provider.dart';
 import '../providers/church_selector_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Seletor de unidade da rede (matriz/filial, CHU-300).
 ///
@@ -94,7 +95,7 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      body: SafeArea(
+      body: ReadableWidth(child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -212,7 +213,7 @@ class _ChurchSelectorScreenState extends ConsumerState<ChurchSelectorScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

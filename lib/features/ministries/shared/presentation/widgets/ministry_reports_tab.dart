@@ -12,6 +12,7 @@ import '../../../presentation/providers/ministries_provider.dart';
 import '../../domain/ministry_contact.dart';
 import '../../domain/ministry_finance.dart';
 import '../providers/ministry_finance_providers.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba Relatórios do workspace: o panorama do departamento em uma tela —
 /// equipe, escala e caixa.
@@ -93,7 +94,8 @@ class MinistryReportsTab extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         children: [
-          for (final w in leading) ...[w, const SizedBox(height: 10)],
+          ResponsiveGrid(gap: 10, children: [
+          ...leading,
           MinistryReportCard(
             icon: AppIcons.group,
             title: 'Equipe',
@@ -113,7 +115,6 @@ class MinistryReportsTab extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
           MinistryReportCard(
             icon: AppIcons.calendar,
             title: 'Escala',
@@ -127,7 +128,6 @@ class MinistryReportsTab extends ConsumerWidget {
               MinistryReportLine('Pessoas escaladas', '${scale.distinctPeople}'),
             ],
           ),
-          const SizedBox(height: 10),
           if (access.canView && summary != null)
             MinistryReportCard(
               icon: AppIcons.finance,
@@ -156,6 +156,7 @@ class MinistryReportsTab extends ConsumerWidget {
                 ),
               ],
             ),
+          ]),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: () => _copy(

@@ -11,6 +11,7 @@ import '../../../../core/widgets/status_badge.dart';
 import '../providers/groups_provider.dart';
 import '../../domain/models/group.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem de grupos
 class GroupsListScreen extends ConsumerStatefulWidget {
@@ -101,7 +102,8 @@ class _GroupsListScreenState extends ConsumerState<GroupsListScreen> {
             );
           }
 
-          return ListView.builder(
+          return ResponsiveGridList(
+            rowGap: 0,
             padding: const EdgeInsets.all(16),
             itemCount: filteredGroups.length,
             itemBuilder: (context, index) {

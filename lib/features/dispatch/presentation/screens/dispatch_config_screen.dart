@@ -7,6 +7,7 @@ import '../../../support_materials/domain/models/support_material_link.dart';
 import '../../../support_materials/presentation/widgets/entity_selector_dialog.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 enum DispatchRuleType {
   birthday('birthday', 'Aniversários'),
@@ -128,7 +129,7 @@ class _DispatchConfigScreenState extends ConsumerState<DispatchConfigScreen> {
       appBar: AppBar(
         title: const Text('Configuração de Disparos'),
       ),
-      body: Padding(
+      body: ReadableWidth(child: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
@@ -186,7 +187,7 @@ class _DispatchConfigScreenState extends ConsumerState<DispatchConfigScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }
@@ -281,7 +282,7 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
             ),
           ],
         ),
-        body: rulesAsync.when(
+        body: ReadableWidth(child: rulesAsync.when(
           data: (rules) => ListView.builder(
             controller: controller,
             itemCount: rules.length,
@@ -436,7 +437,7 @@ class _DispatchRulesSheetState extends ConsumerState<_DispatchRulesSheet> {
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Erro ao carregar regras: $e')),
-        ),
+        )),
       ),
     );
   }
@@ -1829,7 +1830,7 @@ class _MonitoringSheetState extends ConsumerState<_MonitoringSheet> {
         appBar: AppBar(
           title: const Text('Monitoramento de Disparos'),
         ),
-        body: Column(
+        body: ReadableWidth(child: Column(
           children: [
             _StatusFilterBar(
               selected: _filter,
@@ -1890,7 +1891,7 @@ class _MonitoringSheetState extends ConsumerState<_MonitoringSheet> {
               ),
             ),
           ],
-        ),
+        )),
       ),
     );
   }

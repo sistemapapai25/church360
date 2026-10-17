@@ -10,6 +10,7 @@ import '../../../ministries/shared/domain/ministry_type_catalog.dart';
 import '../../../ministries/shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../domain/onboarding_status.dart';
 import '../providers/onboarding_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// `/primeiros-passos` (F1): assistente por cima das telas que já existem.
 /// Cada etapa abre a tela de sempre (ou uma folha curta) e o servidor detecta
@@ -22,7 +23,7 @@ class OnboardingStepsScreen extends ConsumerWidget {
     final statusAsync = ref.watch(onboardingStatusProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Primeiros passos')),
-      body: statusAsync.when(
+      body: ReadableWidth(child: statusAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
@@ -62,7 +63,7 @@ class OnboardingStepsScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

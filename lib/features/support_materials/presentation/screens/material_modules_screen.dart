@@ -8,6 +8,7 @@ import '../../../../core/widgets/file_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de gerenciamento de módulos/capítulos de um material
 class MaterialModulesScreen extends ConsumerStatefulWidget {
@@ -47,7 +48,7 @@ class _MaterialModulesScreenState extends ConsumerState<MaterialModulesScreen> {
         icon: Icons.add,
         label: 'Novo Módulo',
       ),
-      body: modulesAsync.when(
+      body: ReadableWidth(child: modulesAsync.when(
         data: (modules) {
           if (modules.isEmpty) {
             return Center(
@@ -138,7 +139,7 @@ class _MaterialModulesScreenState extends ConsumerState<MaterialModulesScreen> {
         error: (error, stack) => Center(
           child: Text('Erro ao carregar módulos: $error'),
         ),
-      ),
+      )),
     );
   }
 

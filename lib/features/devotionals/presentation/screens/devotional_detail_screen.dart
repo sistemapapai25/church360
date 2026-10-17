@@ -15,6 +15,7 @@ import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de detalhes do devocional (leitura)
 class DevotionalDetailScreen extends ConsumerStatefulWidget {
@@ -208,7 +209,7 @@ class _DevotionalDetailScreenState
           ],
         ),
       ),
-      body: devotionalAsync.when(
+      body: ReadableWidth(child: devotionalAsync.when(
         data: (devotional) {
           if (devotional == null) {
             return const Center(child: Text('Devocional não encontrado'));
@@ -976,7 +977,7 @@ class _DevotionalDetailScreenState
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Erro: $error')),
-      ),
+      )),
       bottomNavigationBar: devotionalAsync.when(
         data: (devotional) {
           if (devotional == null) {

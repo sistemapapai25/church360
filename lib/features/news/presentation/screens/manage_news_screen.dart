@@ -11,6 +11,7 @@ import '../../../events/presentation/providers/events_provider.dart';
 import '../../../events/domain/models/event.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 class ManageNewsScreen extends ConsumerWidget {
   const ManageNewsScreen({super.key});
@@ -107,10 +108,10 @@ class ManageNewsScreen extends ConsumerWidget {
               ref.invalidate(upcomingEventsProvider);
               ref.invalidate(recentNewsProvider);
             },
-            child: ListView.separated(
+            child: ResponsiveGridList(
               padding: const EdgeInsets.all(16),
               itemCount: news.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              gap: 12,
               itemBuilder: (context, index) {
                 final item = news[index];
                 final cs = Theme.of(context).colorScheme;

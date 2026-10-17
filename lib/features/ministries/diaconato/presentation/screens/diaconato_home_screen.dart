@@ -16,6 +16,7 @@ import '../../domain/models/diaconato_dashboard_stats.dart';
 import '../../domain/models/worship_attendance.dart';
 import '../providers/diaconato_attendance_providers.dart';
 import '../widgets/worship_service_picker_sheet.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Workspace do Diaconato — o mesmo esqueleto do Batismo, com uma aba a
 /// mais.
@@ -123,6 +124,7 @@ class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
           const SizedBox(height: 8),
           // Checklist e Ausentes viraram um fluxo só: salvar o checklist
           // abre os ausentes do mesmo culto.
+          ResponsiveGrid(gap: 16, children: [
           _PlaceholderCard(
             icon: AppIcons.checklist,
             title: 'Presença do culto',
@@ -135,7 +137,6 @@ class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
               destinationPath: '/checklist',
             ),
           ),
-          const SizedBox(height: 16),
           _PlaceholderCard(
             icon: AppIcons.communion,
             title: 'Lotes de ceia',
@@ -146,6 +147,7 @@ class _DiaconatoPainelTabState extends ConsumerState<DiaconatoPainelTab> {
               destinationPath: '/communion-batches',
             ),
           ),
+          ]),
         ],
       ),
     );

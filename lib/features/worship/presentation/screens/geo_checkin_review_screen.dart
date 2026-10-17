@@ -6,6 +6,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/presence_deck.dart';
 import '../../domain/models/worship_service.dart';
 import '../providers/worship_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Conferência em cartas da presença pelo celular (16/10, "Match de
 /// Presença" fase 1): uma carta por check-in pelo GPS ainda não validado.
@@ -108,7 +109,7 @@ class _GeoCheckinReviewScreenState extends ConsumerState<GeoCheckinReviewScreen>
           title: const Text('Conferir check-ins'),
           backgroundColor: CommunityDesign.headerColor(context),
         ),
-        body: FutureBuilder<List<WorshipAttendance>>(
+        body: ReadableWidth(child: FutureBuilder<List<WorshipAttendance>>(
           future: _load,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
@@ -160,7 +161,7 @@ class _GeoCheckinReviewScreenState extends ConsumerState<GeoCheckinReviewScreen>
               ),
             );
           },
-        ),
+        )),
       ),
     );
   }

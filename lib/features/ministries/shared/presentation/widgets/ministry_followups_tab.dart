@@ -9,6 +9,7 @@ import '../../../../../core/utils/whatsapp_launcher.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../diaconato/domain/models/worship_attendance.dart';
 import '../../../diaconato/presentation/providers/diaconato_attendance_providers.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 /// Aba **Acompanhar**: ausentes do culto com pendência neste ministério.
 ///
@@ -51,8 +52,10 @@ class MinistryFollowupsTab extends ConsumerWidget {
                   style: CommunityDesign.metaStyle(context),
                 ),
               ),
+            ResponsiveGrid(rowGap: 0, children: [
             for (final f in items)
               _FollowupCard(ministryId: ministryId, followup: f),
+            ]),
           ],
         ),
       ),

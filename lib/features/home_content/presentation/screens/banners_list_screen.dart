@@ -9,6 +9,7 @@ import '../providers/banners_provider.dart';
 import '../../domain/models/banner.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de listagem de banners da Home
 class BannersListScreen extends ConsumerStatefulWidget {
@@ -45,7 +46,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
           ),
         ],
       ),
-      body: bannersAsync.when(
+      body: ReadableWidth(child: bannersAsync.when(
         data: (banners) {
           if (banners.isEmpty) {
             return _buildEmptyState();
@@ -72,7 +73,7 @@ class _BannersListScreenState extends ConsumerState<BannersListScreen> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

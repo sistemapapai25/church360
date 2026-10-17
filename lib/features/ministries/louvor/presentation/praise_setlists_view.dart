@@ -12,6 +12,7 @@ import '../../../events/presentation/providers/events_provider.dart';
 import '../data/praise_repository.dart';
 import 'louvores_tab.dart';
 import 'providers/praise_providers.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Lado "Repertórios" da aba Louvores (canvas, tela 5): próximos (com
 /// evento), sem evento e anteriores. Busca e filtros na mesma barra da
@@ -174,7 +175,9 @@ class _PraiseSetlistsViewState extends ConsumerState<PraiseSetlistsView> {
           ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.5),
         ),
       ),
+      ResponsiveGrid(rowGap: 0, children: [
       for (final s in items) _SetlistCard(ministryId: ministryId, setlist: s),
+      ]),
     ];
   }
 

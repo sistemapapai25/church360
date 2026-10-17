@@ -13,6 +13,7 @@ import '../data/praise_repository.dart';
 import 'praise_received_view.dart';
 import 'praise_setlists_view.dart';
 import 'providers/praise_providers.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Aba Louvores: repertórios do ministério e a biblioteca da igreja (que é
 /// do tenant, não do ministério — qualquer ministério de tipo louvor abre a
@@ -225,6 +226,7 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                       : _shelf.emptyMessage,
                 ),
               if (_shelf != _Shelf.changes)
+                ResponsiveGrid(rowGap: 0, children: [
                 for (final s in visible)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -283,6 +285,7 @@ class _LouvoresTabState extends ConsumerState<LouvoresTab> {
                       ),
                     ),
                   ),
+                ]),
             ],
           ),
         );

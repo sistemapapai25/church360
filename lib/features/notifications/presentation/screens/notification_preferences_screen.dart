@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/notification_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class NotificationPreferencesScreen extends ConsumerWidget {
   const NotificationPreferencesScreen({super.key});
@@ -14,7 +15,7 @@ class NotificationPreferencesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Preferências de Notificações'),
       ),
-      body: preferencesAsync.when(
+      body: ReadableWidth(child: preferencesAsync.when(
         data: (preferences) {
           if (preferences == null) {
             return const Center(
@@ -205,7 +206,7 @@ class NotificationPreferencesScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

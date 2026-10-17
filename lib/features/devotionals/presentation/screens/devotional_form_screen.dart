@@ -7,6 +7,7 @@ import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário para criar/editar devocional
 class DevotionalFormScreen extends ConsumerStatefulWidget {
@@ -205,7 +206,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
       appBar: AppBar(
         title: Text(_isEditing ? 'Editar Devocional' : 'Novo Devocional'),
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -392,7 +393,7 @@ class _DevotionalFormScreenState extends ConsumerState<DevotionalFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

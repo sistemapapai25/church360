@@ -10,6 +10,7 @@ import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../events/presentation/providers/events_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class NewsFormScreen extends ConsumerStatefulWidget {
   final String? newsId;
@@ -274,7 +275,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
             ),
         ],
       ),
-      body: _isLoading
+      body: ReadableWidth(child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -391,7 +392,7 @@ class _NewsFormScreenState extends ConsumerState<NewsFormScreen> {
                   ),
                 ),
               ),
-            ),
+            )),
     );
   }
 }

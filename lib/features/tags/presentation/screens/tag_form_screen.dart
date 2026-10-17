@@ -5,6 +5,7 @@ import '../../data/tags_repository.dart';
 import '../providers/tags_provider.dart';
 import '../widgets/tag_usage_help.dart';
 import '../../../../core/navigation/route_guard.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de tag (criar/editar)
 class TagFormScreen extends ConsumerStatefulWidget {
@@ -115,7 +116,7 @@ class _TagFormScreenState extends ConsumerState<TagFormScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: ReadableWidth(child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -230,7 +231,7 @@ class _TagFormScreenState extends ConsumerState<TagFormScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 

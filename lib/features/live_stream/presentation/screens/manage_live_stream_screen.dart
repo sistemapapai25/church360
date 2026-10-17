@@ -8,6 +8,7 @@ import '../../../courses/presentation/turma/tabs/turma_aulas_tab.dart'
     show blankToNull, lessonUrlError, openLessonLink;
 import '../providers/live_stream_provider.dart';
 import '../../domain/models/live_stream.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Pasta dos PDFs de slides no bucket (policy `culto_slides_*`, 007400).
 const String cultoSlidesFolder = 'culto';
@@ -557,7 +558,7 @@ class _ManageLiveStreamScreenState
             ),
         ],
       ),
-      body: configAsync.when(
+      body: ReadableWidth(child: configAsync.when(
         data: (config) {
           if (!_loaded) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -677,7 +678,7 @@ class _ManageLiveStreamScreenState
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

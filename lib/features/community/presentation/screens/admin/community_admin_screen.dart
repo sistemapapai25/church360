@@ -8,6 +8,7 @@ import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
+import '../../../../../core/layout/readable_width.dart';
 
 class CommunityAdminScreen extends ConsumerStatefulWidget {
   const CommunityAdminScreen({super.key});
@@ -61,10 +62,10 @@ class _CommunityAdminScreenState extends ConsumerState<CommunityAdminScreen>
           ],
         ),
       ),
-      body: TabBarView(
+      body: ReadableWidth(child: TabBarView(
         controller: _tabController,
         children: const [_PendingPostsList(), _PendingClassifiedsList()],
-      ),
+      )),
     );
   }
 }

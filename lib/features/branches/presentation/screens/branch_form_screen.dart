@@ -6,6 +6,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../members/domain/models/member.dart';
 import '../../../permissions/presentation/widgets/user_search_dialog.dart';
 import '../providers/branches_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de criação de filial (CHU-289). Só criação — ver/alterar pastor
 /// responsável de uma filial já existente ficou fora de escopo desta v1
@@ -83,7 +84,7 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
             ),
         ],
       ),
-      body: ListView(
+      body: ReadableWidth(child: ListView(
         padding: CommunityDesign.overlayPadding,
         children: [
           Form(
@@ -153,7 +154,7 @@ class _BranchFormScreenState extends ConsumerState<BranchFormScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

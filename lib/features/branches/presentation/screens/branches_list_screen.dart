@@ -6,6 +6,7 @@ import '../../../../core/design/community_design.dart';
 import '../../domain/models/tenant_unit.dart';
 import '../providers/branches_provider.dart';
 import '../widgets/grant_unit_access_dialog.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Painel da matriz: lista a rede (matriz + filiais) e permite criar uma
 /// filial nova. CHU-289.
@@ -19,7 +20,7 @@ class BranchesListScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 16),
@@ -233,7 +234,7 @@ class BranchesListScreen extends ConsumerWidget {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 }

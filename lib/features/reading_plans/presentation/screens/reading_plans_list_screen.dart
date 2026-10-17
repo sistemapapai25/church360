@@ -10,6 +10,7 @@ import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 const double _pagePadding = 16;
 const double _cardPadding = 16;
@@ -135,7 +136,8 @@ class ReadingPlansListScreen extends ConsumerWidget {
               onRefresh: () async {
                 ref.invalidate(activeReadingPlansProvider);
               },
-              child: ListView.builder(
+              child: ResponsiveGridList(
+                rowGap: 0,
                 padding: const EdgeInsets.all(_pagePadding),
                 itemCount: plans.length,
                 itemBuilder: (context, index) {

@@ -8,6 +8,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de testemunho (criar/editar)
 class TestimonyFormScreen extends ConsumerStatefulWidget {
@@ -159,7 +160,7 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
         ),
         centerTitle: true,
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -270,7 +271,7 @@ class _TestimonyFormScreenState extends ConsumerState<TestimonyFormScreen> {
               ),
           ],
         ),
-      ),
+      )),
     );
   }
 

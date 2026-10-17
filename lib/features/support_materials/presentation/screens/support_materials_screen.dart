@@ -5,6 +5,7 @@ import '../providers/support_materials_provider.dart';
 import '../../domain/models/support_material.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem de materiais de apoio
 class SupportMaterialsScreen extends ConsumerWidget {
@@ -90,7 +91,8 @@ class SupportMaterialsScreen extends ConsumerWidget {
             );
           }
 
-          return ListView.builder(
+          return ResponsiveGridList(
+            rowGap: 0,
             padding: EdgeInsets.fromLTRB(16, 16, 16, embedded ? 88 : 16),
             itemCount: materials.length,
             itemBuilder: (context, index) {

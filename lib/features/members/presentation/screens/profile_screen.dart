@@ -6,6 +6,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/members_provider.dart';
 import 'member_profile_screen.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de Perfil do Usuário (Meu Perfil)
 ///
@@ -100,7 +101,7 @@ class ProfileScreen extends ConsumerWidget {
           color: CommunityDesign.titleStyle(context).color,
         ),
       ),
-      body: Center(
+      body: ReadableWidth(child: Center(
         child: SingleChildScrollView(
           padding: CommunityDesign.overlayPadding,
           child: Column(
@@ -248,7 +249,7 @@ class ProfileScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

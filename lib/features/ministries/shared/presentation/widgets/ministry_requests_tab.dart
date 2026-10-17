@@ -15,6 +15,7 @@ import '../../domain/ministry_routine.dart';
 import '../providers/ministry_routine_providers.dart';
 import '../providers/ministry_stock_providers.dart';
 import 'ministry_routine_tab.dart';
+import '../../../../../core/layout/responsive_grid.dart';
 
 const _kOpen = 'abertos';
 const _kDone = 'fechados';
@@ -123,6 +124,7 @@ class _MinistryRequestsTabState extends ConsumerState<MinistryRequestsTab> {
                     style: meta,
                   ),
                 ),
+              ResponsiveGrid(rowGap: 0, children: [
               for (final r in visible)
                 _RequestCard(
                   request: r,
@@ -136,6 +138,7 @@ class _MinistryRequestsTabState extends ConsumerState<MinistryRequestsTab> {
                     openedByName: team[r.openedBy],
                   ),
                 ),
+              ]),
             ],
           ),
         ),
