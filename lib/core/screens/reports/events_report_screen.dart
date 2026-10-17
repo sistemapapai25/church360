@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../providers/dashboard_stats_provider.dart';
 import '../../widgets/glass_card.dart';
+import '../../layout/readable_width.dart';
 
 /// Tela de relatório de eventos
 class EventsReportScreen extends ConsumerStatefulWidget {
@@ -46,7 +47,7 @@ class _EventsReportScreenState extends ConsumerState<EventsReportScreen> {
           ),
         ],
       ),
-      body: _buildContent(),
+      body: ReadableWidth(maxWidth: 1200, child: _buildContent()),
     );
   }
 

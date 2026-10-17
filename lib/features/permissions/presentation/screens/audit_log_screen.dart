@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../providers/permissions_providers.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class _AuditActionOption {
   const _AuditActionOption(this.value, this.label);
@@ -49,7 +50,7 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           // Filtros ativos
           if (_filterUserId != null || _filterAction != null || _filterDateRange != null)
@@ -208,7 +209,7 @@ class _AuditLogScreenState extends ConsumerState<AuditLogScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

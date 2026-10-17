@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/community_design.dart';
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de despesa
 class ExpenseFormScreen extends ConsumerStatefulWidget {
@@ -180,7 +181,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -340,7 +341,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

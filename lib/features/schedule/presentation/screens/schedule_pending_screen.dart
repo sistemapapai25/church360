@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/utils/csv_writer.dart';
 import '../../../../core/utils/file_download.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -313,13 +314,13 @@ class _SchedulePendingScreenState extends ConsumerState<SchedulePendingScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           _buildFilters(ministriesAsync),
           const Divider(height: 1),
           Expanded(child: _buildList()),
         ],
-      ),
+      )),
     );
   }
 

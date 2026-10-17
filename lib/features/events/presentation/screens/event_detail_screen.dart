@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../domain/google_calendar_link.dart';
@@ -447,7 +448,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
               ),
             ],
           ),
-          body: Column(
+          body: ReadableWidth(child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Uma aba só não precisa de barra de abas.
@@ -474,7 +475,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
                 ),
               ),
             ],
-          ),
+          )),
         );
       },
       loading: () => _buildLoadingScreen(context),

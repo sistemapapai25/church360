@@ -9,6 +9,7 @@ import '../../domain/custom_permission_plan.dart';
 import '../../domain/models/permission.dart';
 import '../../domain/models/user_effective_permission.dart';
 import '../permission_category_display.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class UserPermissionsScreen extends ConsumerStatefulWidget {
   final String userId;
@@ -184,7 +185,7 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           memberAsync.when(
             data: (member) => Container(
@@ -375,7 +376,7 @@ class _UserPermissionsScreenState extends ConsumerState<UserPermissionsScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/utils/csv_writer.dart';
 import '../../../../core/utils/file_download.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
@@ -202,13 +203,13 @@ class _ScheduleAuditHistoryScreenState
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           _buildFilters(ministriesAsync),
           const Divider(height: 1),
           Expanded(child: _buildList()),
         ],
-      ),
+      )),
     );
   }
 

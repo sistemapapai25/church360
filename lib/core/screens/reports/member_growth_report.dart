@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../design/app_icons.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../widgets/glass_card.dart';
+import '../../layout/readable_width.dart';
 
 /// Enum para períodos de filtro
 enum GrowthPeriod {
@@ -146,7 +147,7 @@ class _MemberGrowthReportScreenState
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(maxWidth: 1200, child: Column(
         children: [
           // Filtro de Período
           _buildPeriodFilter(),
@@ -339,7 +340,7 @@ class _MemberGrowthReportScreenState
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

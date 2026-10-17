@@ -5,6 +5,7 @@ import '../../providers/permissions_providers.dart';
 import '../../domain/models/role.dart';
 import '../../../members/domain/models/member.dart';
 import '../widgets/user_search_dialog.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class _ContextOption {
   const _ContextOption(this.value, this.label);
@@ -58,7 +59,7 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -267,7 +268,7 @@ class _AssignRoleScreenState extends ConsumerState<AssignRoleScreen> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
+      )),
     );
   }
 

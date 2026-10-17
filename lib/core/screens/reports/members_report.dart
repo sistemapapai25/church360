@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../design/app_icons.dart';
 import '../../providers/dashboard_stats_provider.dart';
+import '../../layout/readable_width.dart';
 
 /// Tela de relatório de membros
 class MembersReportScreen extends ConsumerStatefulWidget {
@@ -59,7 +60,7 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
           ],
         ),
       ),
-      body: TabBarView(
+      body: ReadableWidth(maxWidth: 1200, child: TabBarView(
         controller: _tabController,
         children: const [
           _GrowthTab(),
@@ -67,7 +68,7 @@ class _MembersReportScreenState extends ConsumerState<MembersReportScreen>
           _RecentMembersTab(),
           // _TagsTab(),
         ],
-      ),
+      )),
     );
   }
 }

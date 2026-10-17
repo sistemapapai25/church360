@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela Principal de Gerenciamento de Permissões
 /// Hub central para acessar todas as funcionalidades do sistema de permissões
@@ -16,7 +17,7 @@ class PermissionsScreen extends ConsumerWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: ListView(
+      body: ReadableWidth(child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Cabeçalho
@@ -145,7 +146,7 @@ class PermissionsScreen extends ConsumerWidget {
 
           const SizedBox(height: 16),
         ],
-      ),
+      )),
     );
   }
 

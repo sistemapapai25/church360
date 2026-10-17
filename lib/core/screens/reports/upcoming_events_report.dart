@@ -8,6 +8,7 @@ import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/events/domain/models/event.dart';
 import '../../constants/supabase_constants.dart';
 import '../../widgets/glass_card.dart';
+import '../../layout/readable_width.dart';
 
 /// Enum para períodos de filtro
 enum EventPeriod {
@@ -95,7 +96,7 @@ class _UpcomingEventsReportScreenState
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(maxWidth: 1200, child: Column(
         children: [
           // Filtro de Período
           _buildPeriodFilter(),
@@ -212,7 +213,7 @@ class _UpcomingEventsReportScreenState
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

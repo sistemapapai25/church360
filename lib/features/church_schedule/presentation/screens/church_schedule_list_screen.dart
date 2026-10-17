@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import 'church_schedule_form_screen.dart';
+import '../../../../core/layout/responsive_grid.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/pearl_fab.dart';
@@ -95,7 +96,10 @@ class _ChurchScheduleListScreenState
               ref.invalidate(activeChurchSchedulesProvider);
               ref.invalidate(allChurchSchedulesProvider);
             },
-            child: ListView.builder(
+            // cada card já traz 12 embaixo
+            child: ResponsiveGridList(
+              gap: 12,
+              rowGap: 0,
               padding: const EdgeInsets.all(16),
               itemCount: schedules.length,
               itemBuilder: (context, index) {
@@ -329,7 +333,9 @@ class _ScheduleCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              Row(
+              // Wrap: em card estreito o horário desce em vez de transbordar
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Icon(
                     AppIcons.calendar,

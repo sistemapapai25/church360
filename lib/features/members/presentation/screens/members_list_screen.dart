@@ -7,6 +7,7 @@ import '../providers/members_provider.dart';
 import '../../domain/models/member.dart';
 import '../../../tags/presentation/providers/tags_provider.dart';
 import '../../../tags/presentation/widgets/tag_filter_chips.dart';
+import '../../../../core/layout/responsive_grid.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -827,10 +828,9 @@ class _MembersListScreenState extends ConsumerState<MembersListScreen> {
           ),
         ),
         Expanded(
-          child: ListView.separated(
+          child: ResponsiveGridList(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             itemCount: filteredMembers.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
             itemBuilder: (context, index) {
               final member = filteredMembers[index];
               return _MemberCard(

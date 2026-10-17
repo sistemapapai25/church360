@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../domain/models/dashboard_widget.dart';
 import '../providers/dashboard_widget_provider.dart';
 import '../design/app_icons.dart';
+import '../layout/readable_width.dart';
 
 /// Tela de configuração da Dashboard
 class DashboardSettingsScreen extends ConsumerStatefulWidget {
@@ -43,7 +44,7 @@ class _DashboardSettingsScreenState
           ),
         ],
       ),
-      body: widgetsAsync.when(
+      body: ReadableWidth(child: widgetsAsync.when(
         data: (widgets) {
           if (_widgets.isEmpty || !_isReordering) {
             _widgets = List.from(widgets);
@@ -142,7 +143,7 @@ class _DashboardSettingsScreenState
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('Erro: $error')),
-      ),
+      )),
     );
   }
 

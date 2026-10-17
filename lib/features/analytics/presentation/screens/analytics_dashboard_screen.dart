@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../providers/analytics_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class AnalyticsDashboardScreen extends ConsumerWidget {
   const AnalyticsDashboardScreen({super.key});
@@ -29,7 +30,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: dashboardAsync.when(
+      body: ReadableWidth(maxWidth: 1200, child: dashboardAsync.when(
         data: (summary) => RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(dashboardSummaryProvider);
@@ -308,7 +309,7 @@ class AnalyticsDashboardScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

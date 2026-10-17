@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/dashboard_widget.dart';
 import '../providers/dashboard_widget_provider.dart';
 import '../design/app_icons.dart';
+import '../layout/readable_width.dart';
 
 /// Tela de gerenciamento pessoal do Dashboard (CHU-308, B1).
 ///
@@ -48,7 +49,7 @@ class _UserDashboardSettingsScreenState
             ),
         ],
       ),
-      body: settingsAsync.when(
+      body: ReadableWidth(child: settingsAsync.when(
         loading: () => itens == null
             ? const Center(child: CircularProgressIndicator())
             : _corpo(itens),
@@ -59,7 +60,7 @@ class _UserDashboardSettingsScreenState
           ),
         ),
         data: (_) => _corpo(itens ?? const []),
-      ),
+      )),
       bottomNavigationBar: _temMudanca ? _barraSalvar() : null,
     );
   }

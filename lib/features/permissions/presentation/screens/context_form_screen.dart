@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class _MinistryOption {
   const _MinistryOption(this.value, this.label);
@@ -95,7 +96,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: rolesAsync.when(
+      body: ReadableWidth(child: rolesAsync.when(
         data: (roles) {
           // Filtrar apenas cargos que permitem contextos
           final rolesWithContext = roles.where((r) => r.allowsContext && r.isActive).toList();
@@ -374,7 +375,7 @@ class _ContextFormScreenState extends ConsumerState<ContextFormScreen> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

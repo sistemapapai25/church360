@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/ministries/batismo/domain/baptism_pdf_renderer.dart'
     show pdfSafeText;
+import '../layout/readable_width.dart';
 
 // G5 (roadmap 14/10, pedido de 16/10): "Seu painel", a tela do pastor/líder
 // aberta pelo perfil da igreja. Tudo vem de uma RPC (`leader_panel`,
@@ -140,7 +141,7 @@ class LeaderPanelScreen extends ConsumerWidget {
             ),
         ],
       ),
-      body: panel.when(
+      body: ReadableWidth(maxWidth: 1200, child: panel.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
@@ -165,7 +166,7 @@ class LeaderPanelScreen extends ConsumerWidget {
                 onRefresh: () => ref.refresh(leaderPanelProvider.future),
                 child: _PanelBody(panel: p),
               ),
-      ),
+      )),
     );
   }
 }

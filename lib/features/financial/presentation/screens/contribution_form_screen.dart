@@ -9,6 +9,7 @@ import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de contribuição
 class ContributionFormScreen extends ConsumerStatefulWidget {
@@ -180,7 +181,7 @@ class _ContributionFormScreenState
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -358,7 +359,7 @@ class _ContributionFormScreenState
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

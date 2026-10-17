@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -59,7 +60,7 @@ class EventUpdatesScreen extends ConsumerWidget {
     final async = ref.watch(eventUpdatesProvider(eventId));
     return Scaffold(
       appBar: AppBar(title: const Text('Atualizações')),
-      body: async.when(
+      body: ReadableWidth(child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) =>
             const _Vazio('Não foi possível carregar as atualizações.'),
@@ -108,7 +109,7 @@ class EventUpdatesScreen extends ConsumerWidget {
             ),
           );
         },
-      ),
+      )),
     );
   }
 }
@@ -273,10 +274,10 @@ class EventNoticesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Avisos do evento')),
-      body: ListView(
+      body: ReadableWidth(child: ListView(
         padding: const EdgeInsets.all(16),
         children: [EventNoticesManager(eventId: eventId)],
-      ),
+      )),
     );
   }
 }

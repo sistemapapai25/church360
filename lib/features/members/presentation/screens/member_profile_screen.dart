@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/utils/storage_upload_path.dart';
@@ -375,7 +376,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
 
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
-      body: Stack(
+      body: ReadableWidth(child: Stack(
         children: [
           memberAsync.when(
             data: (member) {
@@ -429,7 +430,7 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
               ),
             ),
         ],
-      ),
+      )),
     );
   }
 

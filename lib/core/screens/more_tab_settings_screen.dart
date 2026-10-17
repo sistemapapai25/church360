@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/models/more_menu_item.dart';
 import '../providers/more_menu_layout_provider.dart';
 import '../design/app_icons.dart';
+import '../layout/readable_width.dart';
 
 /// Tela de configuração da aba "Mais" (F6).
 ///
@@ -52,7 +53,7 @@ class _MoreTabSettingsScreenState extends ConsumerState<MoreTabSettingsScreen> {
             ),
         ],
       ),
-      body: settingsAsync.when(
+      body: ReadableWidth(child: settingsAsync.when(
         loading: () => itens == null
             ? const Center(child: CircularProgressIndicator())
             : _corpo(itens),
@@ -66,7 +67,7 @@ class _MoreTabSettingsScreenState extends ConsumerState<MoreTabSettingsScreen> {
           ),
         ),
         data: (_) => _corpo(itens ?? const []),
-      ),
+      )),
       bottomNavigationBar: _temMudanca ? _barraSalvar() : null,
     );
   }

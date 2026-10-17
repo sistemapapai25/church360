@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
@@ -793,7 +794,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
       // Fase 6 — S6/IC-6: a barreira de progresso da criação de série fica
       // por cima do corpo, com contador real. Ela só existe enquanto
       // `_seriesProgressTotal != null`.
-      body: Stack(
+      body: ReadableWidth(child: Stack(
         children: [
           _buildFormBody(context),
           if (_seriesProgressTotal != null)
@@ -802,7 +803,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen> {
               total: _seriesProgressTotal!,
             ),
         ],
-      ),
+      )),
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'dart:math' as math;
 import 'package:printing/printing.dart';
 import 'package:flutter/foundation.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/utils/file_download.dart';
 
 import '../../data/schedule_repository.dart';
@@ -1035,7 +1036,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
           ),
         ],
       ),
-      body: FutureBuilder<(List<Event>, List<Event>)>(
+      body: ReadableWidth(child: FutureBuilder<(List<Event>, List<Event>)>(
         future: _loadEvents(repo),
         builder: (context, snapshot) {
           final all = snapshot.data?.$1 ?? const <Event>[];
@@ -1482,7 +1483,7 @@ class _AutoScheduleGeneratorScreenState extends ConsumerState<AutoScheduleGenera
             ],
           );
         },
-      ),
+      )),
     );
   }
 

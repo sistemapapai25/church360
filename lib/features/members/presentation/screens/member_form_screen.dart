@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
@@ -1530,7 +1531,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   )),
         ],
       ),
-      body: _isLoading && widget.memberId != null
+      body: ReadableWidth(child: _isLoading && widget.memberId != null
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16.0),
@@ -2292,7 +2293,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                   ],
                 ),
               ),
-            ),
+            )),
     );
   }
 

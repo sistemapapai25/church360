@@ -14,6 +14,7 @@ import '../utils/financeiro_exports.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class ExtratoScreen extends ConsumerStatefulWidget {
   const ExtratoScreen({super.key});
@@ -76,7 +77,7 @@ class _ExtratoScreenState extends ConsumerState<ExtratoScreen> {
             ),
           ],
         ),
-        body: _buildBody(),
+        body: ReadableWidth(child: _buildBody()),
       ),
     );
   }

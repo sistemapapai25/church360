@@ -17,6 +17,7 @@ import '../domain/models/management_menu.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/management_menu_row.dart';
 import 'leader_panel_screen.dart';
+import '../layout/readable_width.dart';
 
 // Frente G (roadmap 14/10, pedido de 16/10): as telas que a barra de baixo
 // da Dashboard abre por cima dos cards — Pessoas, Ministérios e o perfil da
@@ -142,7 +143,7 @@ class ChurchProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: ReadableWidth(child: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(churchInfoProvider);
           ref.invalidate(activeMembersCountProvider);
@@ -213,7 +214,7 @@ class ChurchProfileScreen extends ConsumerWidget {
             const OnboardingDashboardCard(),
           ],
         ),
-      ),
+      )),
     );
   }
 }

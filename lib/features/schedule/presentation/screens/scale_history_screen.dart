@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
 import '../../../ministries/domain/models/ministry.dart';
@@ -54,7 +55,7 @@ class _ScaleHistoryScreenState extends ConsumerState<ScaleHistoryScreen> {
               ),
             ],
           ),
-          body: schedulesAsync.when(
+          body: ReadableWidth(child: schedulesAsync.when(
             data: (schedules) {
               if (schedules.isEmpty) {
                 return Center(
@@ -150,7 +151,7 @@ class _ScaleHistoryScreenState extends ConsumerState<ScaleHistoryScreen> {
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Erro ao carregar histórico: $e')),
-          ),
+          )),
         );
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),

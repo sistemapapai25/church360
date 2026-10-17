@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../design/app_icons.dart';
 import '../../providers/dashboard_stats_provider.dart';
 import '../../widgets/glass_card.dart';
+import '../../layout/readable_width.dart';
 
 /// Tela de relatório de grupos
 class GroupsReportScreen extends ConsumerWidget {
@@ -15,7 +16,7 @@ class GroupsReportScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Relatório de Grupos')),
-      body: RefreshIndicator(
+      body: ReadableWidth(maxWidth: 1200, child: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(topActiveGroupsProvider);
         },
@@ -76,7 +77,7 @@ class GroupsReportScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('Erro: $error')),
         ),
-      ),
+      )),
     );
   }
 }

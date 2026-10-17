@@ -20,6 +20,7 @@ import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/utils/csv_writer.dart';
 import '../../../../core/utils/file_download.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de visualização de um relatório customizado
 class CustomReportViewScreen extends ConsumerStatefulWidget {
@@ -98,7 +99,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
           ),
         ],
       ),
-      body: reportAsync.when(
+      body: ReadableWidth(maxWidth: 1200, child: reportAsync.when(
         data: (report) {
           if (report == null) {
             return const Center(
@@ -120,7 +121,7 @@ class _CustomReportViewScreenState extends ConsumerState<CustomReportViewScreen>
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

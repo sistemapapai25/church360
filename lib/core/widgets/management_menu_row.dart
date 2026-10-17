@@ -6,6 +6,7 @@ import '../../features/duplicates/presentation/providers/duplicates_provider.dar
 import '../../features/permissions/presentation/widgets/permission_gate.dart';
 import '../../features/permissions/providers/permissions_providers.dart';
 import '../domain/models/management_menu.dart';
+import '../layout/responsive_grid.dart';
 
 /// `true`/`false` quando todas as checagens da categoria resolveram; `null`
 /// enquanto alguma ainda carrega (aí a categoria não aparece).
@@ -109,6 +110,10 @@ class ManagementMenuSection extends ConsumerWidget {
               ),
             ),
           ),
+        // notebook: itens lado a lado (item negado não deixa buraco)
+        ResponsiveGrid(
+          gap: 0,
+          children: [
         for (final item in category.items)
           ManagementItemGate(
             item: item,
@@ -129,6 +134,8 @@ class ManagementMenuSection extends ConsumerWidget {
               onTap: () => navigate(context, item.route),
             ),
           ),
+          ],
+        ),
       ],
     );
   }

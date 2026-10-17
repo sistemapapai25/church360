@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../domain/models/role_context.dart';
 import '../../providers/permissions_providers.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de Lista de Contextos
 /// Exibe todos os contextos criados com opções de busca, filtro e CRUD
@@ -124,7 +125,9 @@ class _ContextsListScreenState extends ConsumerState<ContextsListScreen> {
                   );
                 }
 
-                return ListView.builder(
+                return ResponsiveGridList(
+                  gap: 12,
+                  rowGap: 0, // o card já traz o espaço de baixo
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: filteredContexts.length,
                   itemBuilder: (context, index) {
