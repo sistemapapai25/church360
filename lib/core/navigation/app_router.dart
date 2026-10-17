@@ -175,7 +175,6 @@ import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
 import '../../features/messages/messages_screens.dart';
 import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
 import '../../features/support_chat/presentation/screens/support_attend_screen.dart';
-import '../../features/live_stream/presentation/screens/live_stream_screen.dart';
 import '../../features/live_stream/presentation/screens/manage_live_stream_screen.dart';
 
 final overlayRefresh = ValueNotifier<int>(0);
@@ -467,13 +466,10 @@ final appRouter = GoRouter(
       builder: (context, state) =>
           const DashboardAccessGate(child: LeaderPanelScreen()),
     ),
-    GoRoute(
-      path: '/live-stream',
-      builder: (context, state) => const LiveStreamScreen(),
-    ),
-    // O ampliar do culto abre por cima da Home (app#412); /culto ficou só
-    // para os avisos que já apontam para cá (push da live automática).
+    // O culto (live + slides) fica na Home. /culto e /live-stream ficaram só
+    // para os avisos que já apontam para cá (push da live manual e automática).
     GoRoute(path: '/culto', redirect: (_, __) => '/home'),
+    GoRoute(path: '/live-stream', redirect: (_, __) => '/home'),
     GoRoute(
       path: '/live-stream/manage',
       builder: (context, state) => const DashboardAccessGate(
