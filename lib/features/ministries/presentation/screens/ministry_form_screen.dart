@@ -7,6 +7,7 @@ import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
 import '../../shared/presentation/screens/ministry_about_screen.dart';
 import '../../shared/presentation/widgets/ministry_tabs_settings_card.dart';
+import '../../shared/presentation/widgets/ministry_clean_record_card.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
@@ -154,6 +155,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
                 if (isEditing) ...[
                   MinistryTabsSettingsCard(ministryId: widget.ministryId!),
                   const SizedBox(height: 16),
+                  MinistryCleanRecordCard(ministryId: widget.ministryId!),
                 ],
                 if (canEdit) ...[
                 // Dados Básicos

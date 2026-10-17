@@ -7,6 +7,7 @@ import '../../../../members/presentation/widgets/send_access_invite.dart';
 import '../../../../permissions/providers/permissions_providers.dart';
 import '../../../domain/models/ministry.dart';
 import '../../../presentation/providers/ministries_provider.dart';
+import '../../../../../core/errors/app_error_handler.dart';
 
 /// Ações de equipe de um ministério: incluir membro, trocar a função de quem
 /// já está e desvincular.
@@ -1166,6 +1167,9 @@ class _MinistryAddMemberDialogState
         Navigator.pop(context);
       }
     } catch (e) {
+      if (mounted && await AppErrorHandler.handleCleanRecordBlock(context, e)) {
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -314,6 +314,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       // B3: cada item abre o seu destino; o card de ausentes abre o Check-in.
       'updates_feed': const UpdatesFeedCard(),
       'absent_last_culto': const AbsentLastCultoCard(),
+      // K6: pendências de ficha limpa; cada pessoa abre a ficha.
+      'background_check_pending': const BackgroundCheckPendingCard(),
     };
 
     return widgetMap[widgetKey] ?? const SizedBox.shrink();

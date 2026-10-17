@@ -42,6 +42,10 @@ class Ministry {
   final String? rules;
   final String? doctrinalBase;
 
+  /// K6: "Exige ficha limpa". Só leitura aqui: grava pela RPC
+  /// `set_ministry_requires_clean_record` (fora do toJson de propósito).
+  final bool requiresCleanRecord;
+
   Ministry({
     required this.id,
     required this.name,
@@ -63,6 +67,7 @@ class Ministry {
     this.guidelines,
     this.rules,
     this.doctrinalBase,
+    this.requiresCleanRecord = false,
   });
 
   /// Abas que o líder ligou/desligou na engrenagem (`settings.tabs`), chave →
@@ -106,6 +111,7 @@ class Ministry {
       guidelines: json['guidelines'] as String?,
       rules: json['rules'] as String?,
       doctrinalBase: json['doctrinal_base'] as String?,
+      requiresCleanRecord: json['requires_clean_record'] as bool? ?? false,
     );
   }
 
@@ -152,6 +158,7 @@ class Ministry {
     String? guidelines,
     String? rules,
     String? doctrinalBase,
+    bool? requiresCleanRecord,
   }) {
     return Ministry(
       id: id ?? this.id,
@@ -174,6 +181,7 @@ class Ministry {
       guidelines: guidelines ?? this.guidelines,
       rules: rules ?? this.rules,
       doctrinalBase: doctrinalBase ?? this.doctrinalBase,
+      requiresCleanRecord: requiresCleanRecord ?? this.requiresCleanRecord,
     );
   }
 
