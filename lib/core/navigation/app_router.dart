@@ -470,6 +470,9 @@ final appRouter = GoRouter(
       path: '/live-stream',
       builder: (context, state) => const LiveStreamScreen(),
     ),
+    // O ampliar do culto abre por cima da Home (app#412); /culto ficou só
+    // para os avisos que já apontam para cá (push da live automática).
+    GoRoute(path: '/culto', redirect: (_, __) => '/home'),
     GoRoute(
       path: '/live-stream/manage',
       builder: (context, state) => const DashboardAccessGate(
