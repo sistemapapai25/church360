@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../data/pptx_deck.dart';
+import '../providers/live_stream_provider.dart';
 
 import 'slides_viewer_web_stub.dart'
     if (dart.library.js_interop) 'slides_viewer_web.dart';
@@ -104,25 +106,38 @@ class SlidesViewer extends StatelessWidget {
 }
 
 /// Leitor próprio do PPTX: um slide por vez, arrastar ou setas, "n / total".
-class _PptxViewer extends StatefulWidget {
+/// Com os JPG do ONLYOFFICE (`slides_render`) mostra as imagens; sem eles,
+/// desenha o PPTX pelo [PptxDeck].
+class _PptxViewer extends ConsumerStatefulWidget {
   final String url;
   final WidgetBuilder fallback;
 
   const _PptxViewer({required this.url, required this.fallback});
 
   @override
-  State<_PptxViewer> createState() => _PptxViewerState();
+  ConsumerState<_PptxViewer> createState() => _PptxViewerState();
 }
 
-class _PptxViewerState extends State<_PptxViewer> {
-  late Future<PptxDeck?> _deck = _load();
+class _PptxViewerState extends ConsumerState<_PptxViewer> {
+  late Future<List<Widget>?> _deck = _load();
   final _pages = PageController();
   int _page = 0;
 
-  Future<PptxDeck?> _load() async {
+  Future<List<Widget>?> _load() async {
+    final images = await ref
+        .read(liveStreamRepositoryProvider)
+        .slideImages(widget.url)
+        .catchError((_) => null);
+    if (images != null) {
+      return [
+        for (final src in images)
+          Image.network(src, fit: BoxFit.contain, gaplessPlayback: true),
+      ];
+    }
     final res = await http.get(Uri.parse(widget.url.trim()));
     if (res.statusCode != 200) return null;
-    return PptxDeck.tryParse(res.bodyBytes);
+    final deck = PptxDeck.tryParse(res.bodyBytes);
+    return deck?.slides.map((s) => _SlideView(deck: deck, slide: s)).toList();
   }
 
   @override
@@ -152,7 +167,7 @@ class _PptxViewerState extends State<_PptxViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<PptxDeck?>(
+    return FutureBuilder<List<Widget>?>(
       future: _deck,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
@@ -161,9 +176,9 @@ class _PptxViewerState extends State<_PptxViewer> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        final deck = snap.data;
-        if (deck == null) return widget.fallback(context);
-        final total = deck.slides.length;
+        final slides = snap.data;
+        if (slides == null || slides.isEmpty) return widget.fallback(context);
+        final total = slides.length;
         return ColoredBox(
           color: Colors.black,
           child: Column(
@@ -173,9 +188,7 @@ class _PptxViewerState extends State<_PptxViewer> {
                   controller: _pages,
                   itemCount: total,
                   onPageChanged: (i) => setState(() => _page = i),
-                  itemBuilder: (_, i) => Center(
-                    child: _SlideView(deck: deck, slide: deck.slides[i]),
-                  ),
+                  itemBuilder: (_, i) => Center(child: slides[i]),
                 ),
               ),
               Row(
