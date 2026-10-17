@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../providers/visitors_provider.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -131,7 +132,7 @@ class _VisitorVisitFormScreenState
           style: CommunityDesign.titleStyle(context),
         ),
       ),
-      body: visitorAsync.when(
+      body: ReadableWidth(child: visitorAsync.when(
         data: (visitor) {
           if (visitor == null) {
             return const Center(child: Text('Visitante não encontrado'));
@@ -242,7 +243,7 @@ class _VisitorVisitFormScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Erro ao carregar visitante: $error')),
-      ),
+      )),
     );
   }
 }

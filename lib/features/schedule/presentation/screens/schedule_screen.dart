@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../providers/schedule_provider.dart';
 import '../providers/holidays_provider.dart';
 import '../../../events/domain/models/event.dart';
@@ -101,7 +102,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
     );
 
     if (!widget.showAppBar) {
-      return content;
+      return ReadableWidth(child: content);
     }
 
     return PopScope(
@@ -162,7 +163,7 @@ class _ScheduleScreenState extends ConsumerState<ScheduleScreen> {
             ],
           ),
         ),
-        body: content,
+        body: ReadableWidth(child: content),
       ),
     );
   }

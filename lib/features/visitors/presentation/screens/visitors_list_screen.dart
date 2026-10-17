@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/visitors_provider.dart';
 import '../../domain/models/visitor.dart';
 import '../../../ministries/raizes/domain/models/raizes_followup.dart';
+import '../../../../core/layout/responsive_grid.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/date_period_filter.dart';
@@ -394,10 +395,9 @@ class _VisitorsListScreenState extends ConsumerState<VisitorsListScreen> {
       );
     }
 
-    return ListView.separated(
+    return ResponsiveGridList(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
       itemCount: filteredVisitors.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
         final visitor = filteredVisitors[index];
         return _VisitorCard(visitor: visitor);

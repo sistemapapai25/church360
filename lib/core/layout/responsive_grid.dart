@@ -121,3 +121,57 @@ class RenderResponsiveGrid extends RenderBox
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
       defaultHitTestChildren(result, position: position);
 }
+
+/// [ResponsiveGrid] para lista longa (membros, eventos): monta só as linhas
+/// visíveis, como um `ListView.builder`. Cada linha tem [gridColumns] cards
+/// lado a lado, alinhados pelo topo. [rowGap] separa as linhas (0 quando o
+/// item já traz o próprio espaço embaixo).
+class ResponsiveGridList extends StatelessWidget {
+  const ResponsiveGridList({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.padding = EdgeInsets.zero,
+    this.gap = 16,
+    double? rowGap,
+    this.minCardWidth = 320,
+  }) : rowGap = rowGap ?? gap;
+
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final EdgeInsets padding;
+  final double gap;
+  final double rowGap;
+  final double minCardWidth;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, c) {
+          final cols = gridColumns(
+            c.maxWidth - padding.horizontal,
+            minCardWidth: minCardWidth,
+          );
+          return ListView.separated(
+            padding: padding,
+            itemCount: (itemCount / cols).ceil(),
+            separatorBuilder: (_, __) => SizedBox(height: rowGap),
+            itemBuilder: (context, row) {
+              if (cols == 1) return itemBuilder(context, row);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (var i = 0; i < cols; i++) ...[
+                    if (i > 0) SizedBox(width: gap),
+                    Expanded(
+                      child: row * cols + i < itemCount
+                          ? itemBuilder(context, row * cols + i)
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ],
+              );
+            },
+          );
+        },
+      );
+}

@@ -62,4 +62,31 @@ void main() {
     await _pump(tester, 1000, [const SizedBox.shrink()]);
     expect(tester.getSize(find.byType(ResponsiveGrid)).height, 0);
   });
+
+  testWidgets('lista longa: 3 por linha no PC e só monta o que aparece', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: ResponsiveGridList(
+          itemCount: 300,
+          itemBuilder: (_, i) => _card('$i'),
+        ),
+      ),
+    );
+    final w = (1000 - 32) / 3;
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('1'))),
+      Offset(w + 16, 0),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('3'))),
+      const Offset(0, 76),
+    );
+    expect(find.byKey(const ValueKey('299')), findsNothing);
+  });
 }

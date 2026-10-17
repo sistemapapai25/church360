@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -31,7 +32,7 @@ class _VisitorsStatisticsScreenState
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Estatísticas de Visitantes'),
       ),
-      body: visitorsAsync.when(
+      body: ReadableWidth(child: visitorsAsync.when(
         data: (visitors) {
           // Filtrar por período
           final now = DateTime.now();
@@ -303,7 +304,7 @@ class _VisitorsStatisticsScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Erro ao carregar estatísticas: $error')),
-      ),
+      )),
     );
   }
 }

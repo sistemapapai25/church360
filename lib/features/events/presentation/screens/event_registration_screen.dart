@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
@@ -372,7 +373,7 @@ class _EventRegistrationScreenState
     return Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(title: const Text('Inscrição no Evento')),
-      body: SingleChildScrollView(
+      body: ReadableWidth(child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: GlassCard(
           child: Column(
@@ -463,7 +464,7 @@ class _EventRegistrationScreenState
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 
@@ -571,7 +572,7 @@ class _EventRegistrationScreenState
 
     return Scaffold(
       appBar: AppBar(title: const Text('Inscrição no Evento')),
-      body: SingleChildScrollView(
+      body: ReadableWidth(child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: GlassCard(
           child: Column(
@@ -766,7 +767,7 @@ class _EventRegistrationScreenState
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 
@@ -911,7 +912,7 @@ class _EventRegistrationScreenState
           onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
-      body: SingleChildScrollView(
+      body: ReadableWidth(child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
@@ -1056,7 +1057,7 @@ class _EventRegistrationScreenState
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

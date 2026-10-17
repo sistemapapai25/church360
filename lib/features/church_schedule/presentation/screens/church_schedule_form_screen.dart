@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../domain/models/church_schedule.dart';
 import '../providers/church_schedule_provider.dart';
 import '../../../../core/design/app_icons.dart';
@@ -104,7 +105,7 @@ class _ChurchScheduleFormScreenState
           widget.scheduleId == null ? 'Nova Agenda' : 'Editar Agenda',
         ),
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -383,7 +384,7 @@ class _ChurchScheduleFormScreenState
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

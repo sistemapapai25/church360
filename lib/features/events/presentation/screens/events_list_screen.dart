@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/layout/responsive_grid.dart';
 import '../../../../core/utils/share_link_utils.dart';
 
 import '../../../../core/design/app_icons.dart';
@@ -575,7 +576,9 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
               ref.invalidate(upcomingEventsProvider);
               ref.invalidate(myUpcomingTeachingLessonsProvider);
             },
-            child: ListView.builder(
+            // cada card já traz 16 embaixo
+            child: ResponsiveGridList(
+              rowGap: 0,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
               itemCount: items.length,
               itemBuilder: (context, index) {
