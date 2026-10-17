@@ -73,6 +73,10 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   http: ^1.5.0
+  # Leitor próprio dos slides do culto (PPTX é um ZIP de XML). Já vinham como
+  # dependência de outros pacotes; aqui só ficam diretas.
+  archive: ^4.0.7
+  xml: ^6.6.1
   qr_flutter: ^4.1.0
   mobile_scanner: ^7.1.2
   url_launcher: ^6.3.2

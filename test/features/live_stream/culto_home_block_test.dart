@@ -94,7 +94,7 @@ void main() {
           eventId: 'e1',
           title: 'Culto',
           streamUrl: 'https://x.test/live',
-          slidesUrl: 'https://x.test/culto.pptx',
+          slidesUrl: 'https://x.test/culto.pdf',
         ),
       ),
     );
