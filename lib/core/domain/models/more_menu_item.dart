@@ -55,13 +55,6 @@ const List<MoreMenuItem> kMoreMenuRegistry = <MoreMenuItem>[
     color: Colors.blue,
   ),
   MoreMenuItem(
-    key: 'live_stream',
-    icon: Icons.live_tv_outlined,
-    label: 'Culto ao vivo',
-    route: '/live-stream',
-    color: Colors.deepOrange,
-  ),
-  MoreMenuItem(
     key: 'leadership',
     icon: Icons.dashboard_outlined,
     label: 'Liderança',
