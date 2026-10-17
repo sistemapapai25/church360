@@ -7,6 +7,7 @@ import '../../../worship/presentation/widgets/presence_reaction_panel.dart';
 import '../../domain/models/current_culto.dart';
 import '../providers/live_stream_provider.dart';
 import '../screens/culto_screen.dart';
+import 'culto_silence_row.dart';
 import 'slides_viewer.dart';
 
 /// Culto que a pessoa recolheu com "min" (id do culto ou link). O bloco vira
@@ -210,6 +211,7 @@ class _CultoHomeBlockState extends ConsumerState<CultoHomeBlock> {
 
     final showPanel = culto.checkinEnabled;
     final showMessage = culto.message != null;
+    final showSilence = CultoSilence.hasRow;
 
     final block = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -233,7 +235,7 @@ class _CultoHomeBlockState extends ConsumerState<CultoHomeBlock> {
                   ],
                 ),
               ],
-              if (showMessage || showPanel) ...[
+              if (showMessage || showPanel || showSilence) ...[
                 const SizedBox(height: 12),
                 GlassCard(
                   padding: const EdgeInsets.all(12),
@@ -249,6 +251,10 @@ class _CultoHomeBlockState extends ConsumerState<CultoHomeBlock> {
                       // Presença pelo celular (A4): "Chegou bem? / O que está
                       // achando?" com os 3 botões; responder marca a presença.
                       if (showPanel) const PresenceReactionPanel(compact: true),
+                      if (showSilence && (showMessage || showPanel))
+                        const SizedBox(height: 10),
+                      // "Não perturbe" no culto (P2).
+                      if (showSilence) const CultoSilenceRow(),
                     ],
                   ),
                 ),
