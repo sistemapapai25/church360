@@ -60,6 +60,19 @@ class LiveStreamRepository {
   Future<CurrentCulto> currentCulto() async =>
       CurrentCulto.fromJson(await _supabase.rpc('current_culto'));
 
+  /// JPG por slide do PPTX, quando o worker do ONLYOFFICE já converteu
+  /// (`slides_render`, 010600). Nulo = ainda não (ou falhou).
+  Future<List<String>?> slideImages(String url) async {
+    final row = await _supabase
+        .from('slides_render')
+        .select('images')
+        .eq('source_url', url.trim())
+        .eq('status', 'done')
+        .maybeSingle();
+    final images = (row?['images'] as List?)?.cast<String>();
+    return (images?.isEmpty ?? true) ? null : images;
+  }
+
   /// "Encerrar modo culto agora" (RPC `culto_mode_off`, `live_stream.manage`):
   /// desliga a chave e tira a Home do modo culto até o próximo culto da Agenda.
   Future<void> cultoModeOff() => _supabase.rpc('culto_mode_off');
