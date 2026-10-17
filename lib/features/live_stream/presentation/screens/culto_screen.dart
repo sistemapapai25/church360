@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -9,32 +8,46 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/media/inline_video.dart';
 import '../../../worship/presentation/widgets/presence_reaction_panel.dart';
 import '../../domain/models/current_culto.dart';
-import '../providers/live_stream_provider.dart';
-import '../widgets/slides_viewer.dart';
 
-/// Modo culto em tela cheia (roadmap 14/10, A2): destino do toque nos cards
-/// do topo da Home. Tema escuro só aqui (não mexe no tema salvo). Mostra a
-/// transmissão (chave ligada), os slides do culto (A3), a mensagem da igreja,
-/// o painel "Chegou bem?" e o ícone da Bíblia (D15 v1: abre por cima; o
-/// "voltar" devolve ao culto). Celular = pilha; tela larga = lado a lado.
-/// [only] (`?so=video` ou `?so=slides`) mostra só um dos dois em tela cheia:
-/// quem está na igreja abre só os slides.
-class CultoScreen extends ConsumerWidget {
+/// Modo culto em tela cheia (roadmap 14/10, A2), aberto por cima da Home
+/// pelo "ampliar" do bloco do culto. Recebe o **mesmo** player e os mesmos
+/// slides dos cards da Home (com GlobalKey): ampliar só muda o tamanho, não
+/// abre outro vídeo. Tema escuro só aqui (não mexe no tema salvo). Mostra a
+/// transmissão, os slides (A3), a mensagem da igreja, o painel "Chegou bem?"
+/// e o ícone da Bíblia (D15 v1: abre por cima; o "voltar" devolve ao culto).
+/// Celular = pilha; tela larga = lado a lado. [only] (`video` ou `slides`)
+/// mostra só um dos dois: quem está na igreja amplia só os slides.
+class CultoFullView extends StatelessWidget {
+  final CurrentCulto culto;
   final String? only;
+  final Widget? player;
+  final Widget? slides;
+  final VoidCallback onClose;
 
-  const CultoScreen({super.key, this.only});
+  const CultoFullView({
+    super.key,
+    required this.culto,
+    required this.onClose,
+    this.only,
+    this.player,
+    this.slides,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final culto = ref.watch(currentCultoProvider).valueOrNull;
-    final live = culto != null && culto.isLive;
+  Widget build(BuildContext context) {
     return Theme(
       data: AppTheme.darkTheme,
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: AppBar(
           backgroundColor: Colors.black,
-          title: Text(live ? (culto.title ?? 'Culto ao vivo') : 'Culto'),
+          leading: IconButton(
+            key: const ValueKey('culto-reduzir'),
+            tooltip: 'Reduzir',
+            icon: const Icon(Icons.close_fullscreen),
+            onPressed: onClose,
+          ),
+          title: Text(culto.title ?? 'Culto ao vivo'),
           actions: [
             IconButton(
               tooltip: 'Bíblia',
@@ -43,14 +56,12 @@ class CultoScreen extends ConsumerWidget {
             ),
           ],
         ),
-        body: live
-            ? _CultoBody(culto: culto, only: only)
-            : const Center(
-                child: Text(
-                  'Nenhum culto agora',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
+        body: _CultoBody(
+          culto: culto,
+          only: only,
+          player: player,
+          slides: slides,
+        ),
       ),
     );
   }
@@ -59,17 +70,19 @@ class CultoScreen extends ConsumerWidget {
 class _CultoBody extends StatelessWidget {
   final CurrentCulto culto;
   final String? only;
+  final Widget? player;
+  final Widget? slides;
 
-  const _CultoBody({required this.culto, this.only});
+  const _CultoBody({required this.culto, this.only, this.player, this.slides});
 
   @override
   Widget build(BuildContext context) {
     final meta = Theme.of(context).textTheme.bodyMedium;
-    final player = culto.hasStream ? CultoPlayer(url: culto.streamUrl!) : null;
-    final slides = culto.hasSlides
-        ? SlidesViewer(url: culto.slidesUrl!)
-        : Center(child: Text('Sem slides neste culto', style: meta));
-    if (only == 'slides' && culto.hasSlides) {
+    final player = this.player;
+    final slides =
+        this.slides ??
+        Center(child: Text('Sem slides neste culto', style: meta));
+    if (only == 'slides' && this.slides != null) {
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8),
