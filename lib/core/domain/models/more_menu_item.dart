@@ -75,6 +75,13 @@ const List<MoreMenuItem> kMoreMenuRegistry = <MoreMenuItem>[
     color: Colors.indigo,
   ),
   MoreMenuItem(
+    key: 'messages',
+    icon: Icons.forum_outlined,
+    label: 'Mensagens',
+    route: '/messages',
+    color: Colors.green,
+  ),
+  MoreMenuItem(
     key: 'kids_registration',
     icon: Icons.child_care_outlined,
     label: 'Inscrição Kids',

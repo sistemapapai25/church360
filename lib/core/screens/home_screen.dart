@@ -62,6 +62,7 @@ import '../onboarding/onboarding_tour_prefs.dart';
 import '../../features/legal/terms_acceptance.dart';
 import '../../features/live_stream/presentation/providers/live_stream_provider.dart';
 import '../../features/live_stream/presentation/widgets/culto_home_block.dart';
+import '../../features/messages/messages_screens.dart';
 
 /// Tela principal do app com navegação por abas fixas
 class HomeScreen extends ConsumerStatefulWidget {
@@ -2084,6 +2085,15 @@ class _MoreTab extends ConsumerWidget {
       // seção traz o próprio espaçamento e some inteira sem vínculo.
       case 'my_ministries':
         return const _MyMinistriesSection();
+
+      // K9: líder pra cima ou quem está em algum grupo de ministério.
+      case 'messages':
+        return Consumer(
+          builder: (context, ref, _) =>
+              ref.watch(msgCanUseProvider).asData?.value == true
+              ? comEspaco(card())
+              : const SizedBox.shrink(),
+        );
 
       // "Trocar de igreja" (CHU-300) — só para quem tem vínculo em mais de uma
       // unidade da rede (matriz/filial).
