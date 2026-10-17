@@ -172,6 +172,7 @@ import '../../features/permissions/presentation/screens/user_permissions_screen.
 import '../../features/kids/presentation/screens/kids_registration_screen.dart';
 import '../../features/kids/presentation/screens/kids_admin_dashboard_screen.dart';
 import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
+import '../../features/messages/messages_screens.dart';
 import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
 import '../../features/support_chat/presentation/screens/support_attend_screen.dart';
 import '../../features/live_stream/presentation/screens/live_stream_screen.dart';
@@ -2264,6 +2265,18 @@ final appRouter = GoRouter(
           initialTab: state.uri.queryParameters['tab'] == 'aulas' ? 3 : 0,
         );
       },
+    ),
+
+    // K9 — Mensagens internas. Aberta a todo logado: quem pode falar com
+    // quem fica nas RPCs msg_* (20261008009600).
+    GoRoute(
+      path: '/messages',
+      builder: (context, state) => const MessagesListScreen(),
+    ),
+    GoRoute(
+      path: '/messages/:id',
+      builder: (context, state) =>
+          ConversationScreen(conversationId: state.pathParameters['id']!),
     ),
 
     // =====================================================
