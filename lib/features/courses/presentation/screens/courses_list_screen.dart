@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/courses_provider.dart';
 import '../../domain/models/course.dart';
 import '../../../../core/design/community_design.dart';
+import '../../../../core/layout/responsive_grid.dart';
 import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/church_image.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -208,23 +209,27 @@ class _CoursesListScreenState extends ConsumerState<CoursesListScreen> {
                             ref.invalidate(activeCoursesProvider);
                             ref.invalidate(upcomingCoursesProvider);
                           },
-                          child: ListView.builder(
+                          child: ListView(
                             // Soma a área da dock da home, que flutua sobre
                             // a lista.
                             padding: EdgeInsets.fromLTRB(
                               20,
                               20,
                               20,
-                              20 + MediaQuery.paddingOf(context).bottom,
+                              40 + MediaQuery.paddingOf(context).bottom,
                             ),
-                            itemCount: courses.length,
-                            itemBuilder: (context, index) {
-                              final course = courses[index];
-                              return _CourseCard(
-                                course: course,
-                                showEditButton: widget.showFab,
-                              );
-                            },
+                            children: [
+                              ResponsiveGrid(
+                                gap: 20,
+                                children: [
+                                  for (final course in courses)
+                                    _CourseCard(
+                                      course: course,
+                                      showEditButton: widget.showFab,
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -278,9 +283,7 @@ class _CourseCard extends ConsumerWidget {
     // Progresso do aluno (E1): só quando enxergo aulas do curso gravado.
     final progress = ref.watch(myCoursesProgressProvider).valueOrNull?[course.id];
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: GlassCard(
+    return GlassCard(
         radius: CommunityDesign.radius,
         padding: EdgeInsets.zero,
         onTap: () {
@@ -470,7 +473,6 @@ class _CourseCard extends ConsumerWidget {
               ),
           ],
         ),
-      ),
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_tabs.dart';
@@ -280,7 +281,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
             ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
@@ -320,7 +321,7 @@ class _TurmaAulaViewState extends ConsumerState<TurmaAulaView> {
             child: KeyedSubtree(key: ValueKey(_tab), child: _buildTab(_tab)),
           ),
         ],
-      ),
+      )),
     );
   }
 }

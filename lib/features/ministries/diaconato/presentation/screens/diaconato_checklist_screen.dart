@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
@@ -395,7 +396,7 @@ class _DiaconatoChecklistContentState
           onPressed: () => (context.canPop() ? context.pop() : context.go('/home')),
         ),
       ),
-      body: FutureBuilder<_ChecklistData>(
+      body: ReadableWidth(child: FutureBuilder<_ChecklistData>(
         future: _loadFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -413,7 +414,7 @@ class _DiaconatoChecklistContentState
           }
           return _cards ? _buildCards(context) : _buildForm(context);
         },
-      ),
+      )),
     );
   }
 

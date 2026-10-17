@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -250,7 +251,7 @@ class _MinistryRoutineRunScreenState
               : 'Rotina · ${routineServiceLabel(runAsync.valueOrNull!)}',
         ),
       ),
-      body: runAsync.when(
+      body: ReadableWidth(child: runAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e', textAlign: TextAlign.center)),
         data: (run) {
@@ -460,7 +461,7 @@ class _MinistryRoutineRunScreenState
             ],
           );
         },
-      ),
+      )),
     );
   }
 }
@@ -888,7 +889,7 @@ class MinistryRoutineConfigScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Itens da rotina')),
-      body: itemsAsync.when(
+      body: ReadableWidth(child: itemsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e', textAlign: TextAlign.center)),
         data: (items) => ListView(
@@ -948,7 +949,7 @@ class MinistryRoutineConfigScreen extends ConsumerWidget {
             ],
           ],
         ),
-      ),
+      )),
     );
   }
 

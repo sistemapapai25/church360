@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/glass_card.dart';
 import '../../../presentation/providers/ministries_provider.dart';
@@ -92,9 +93,9 @@ class _MinistryNotificationConfigScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Notificações de mudança')),
-      body: _loading
+      body: ReadableWidth(child: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _buildBody(context),
+          : _buildBody(context)),
       bottomNavigationBar: _loading
           ? null
           : Padding(

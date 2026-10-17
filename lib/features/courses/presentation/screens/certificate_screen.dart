@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/certificate_pdf.dart';
@@ -51,7 +52,7 @@ class _CertificateScreenState extends ConsumerState<CertificateScreen> {
         backgroundColor: CommunityDesign.headerColor(context),
         title: const Text('Certificado'),
       ),
-      body: lookup.when(
+      body: ReadableWidth(child: lookup.when(
         data: (info) {
           if (info == null) {
             return Center(
@@ -160,7 +161,7 @@ class _CertificateScreenState extends ConsumerState<CertificateScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Erro ao validar o certificado: $error')),
-      ),
+      )),
     );
   }
 }

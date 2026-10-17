@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../core/layout/responsive_grid.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/pearl_fab.dart';
@@ -189,18 +190,21 @@ class _RecommendationsContentState
                     return _EmptyState(filter: _statusFilter);
                   }
                   final groups = _groupByVisitor(recs);
-                  return ListView.builder(
+                  return ListView(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                    itemCount: groups.length,
-                    itemBuilder: (context, i) {
-                      final group = groups[i];
-                      return _VisitorGroupCard(
-                        group: group,
-                        onAccept: _accept,
-                        onReject: _reject,
-                        onArchive: _archive,
-                      );
-                    },
+                    children: [
+                      ResponsiveGrid(
+                        children: [
+                          for (final group in groups)
+                            _VisitorGroupCard(
+                              group: group,
+                              onAccept: _accept,
+                              onReject: _reject,
+                              onArchive: _archive,
+                            ),
+                        ],
+                      ),
+                    ],
                   );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),

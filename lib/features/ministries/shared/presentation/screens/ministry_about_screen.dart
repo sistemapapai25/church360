@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/glass_card.dart';
@@ -66,7 +67,7 @@ class MinistryAboutScreen extends ConsumerWidget {
           ],
         ),
       ),
-      body: ministry == null
+      body: ReadableWidth(child: ministry == null
           ? const Center(child: CircularProgressIndicator())
           : sections.isEmpty
           ? Center(
@@ -143,7 +144,7 @@ class MinistryAboutScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
               ],
-            ),
+            )),
     );
   }
 }

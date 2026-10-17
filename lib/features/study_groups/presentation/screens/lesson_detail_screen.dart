@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -57,7 +58,7 @@ class LessonDetailScreen extends ConsumerWidget {
               style: CommunityDesign.titleStyle(context),
             ),
           ),
-          body: SingleChildScrollView(
+          body: ReadableWidth(child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: GlassCard(
               child: Column(
@@ -249,7 +250,7 @@ class LessonDetailScreen extends ConsumerWidget {
                 ],
               ),
             ),
-          ),
+          )),
         );
       },
       loading: () => Scaffold(

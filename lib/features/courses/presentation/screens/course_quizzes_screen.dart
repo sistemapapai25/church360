@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/course_quiz.dart';
@@ -36,7 +37,7 @@ class CourseQuizzesScreen extends ConsumerWidget {
           ],
         ),
       ),
-      body: quizzes.when(
+      body: ReadableWidth(child: quizzes.when(
         data: (items) {
           if (items.isEmpty) {
             return Center(
@@ -103,7 +104,7 @@ class CourseQuizzesScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Erro ao carregar provas: $error')),
-      ),
+      )),
       floatingActionButton: PearlFab(
         onPressed: () => context.push('/courses/$courseId/quizzes/new/edit'),
         icon: Icons.add,
@@ -312,7 +313,7 @@ class _CourseQuizFormScreenState extends ConsumerState<CourseQuizFormScreen> {
           ),
         ],
       ),
-      body: !_loaded
+      body: ReadableWidth(child: !_loaded
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
@@ -382,7 +383,7 @@ class _CourseQuizFormScreenState extends ConsumerState<CourseQuizFormScreen> {
                   const SizedBox(height: 32),
                 ],
               ),
-            ),
+            )),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../../../members/presentation/providers/members_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../providers/study_group_provider.dart';
 import '../../domain/models/study_group.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/utils/name_sort.dart';
 import '../../../../core/utils/share_link_utils.dart';
@@ -135,7 +136,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            body: TabBarView(
+            body: ReadableWidth(child: TabBarView(
               children: [
                 // Tab 1: Sobre
                 _buildAboutTab(context, group),
@@ -171,7 +172,7 @@ class StudyGroupDetailScreen extends ConsumerWidget {
                   error: (error, stack) => Center(child: Text('Erro: $error')),
                 ),
               ],
-            ),
+            )),
           ),
         );
       },

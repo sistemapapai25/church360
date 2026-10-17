@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/courses_provider.dart';
 import '../../domain/models/course_lesson.dart';
 import '../../domain/models/course_turma.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 
@@ -97,7 +98,7 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
             ),
         ],
       ),
-      body: lessonsAsync.when(
+      body: ReadableWidth(child: lessonsAsync.when(
         data: (lessons) {
           if (lessons.isEmpty) {
             return Center(
@@ -194,7 +195,7 @@ class _CourseLessonsScreenState extends ConsumerState<CourseLessonsScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) =>
             Center(child: Text('Erro ao carregar aulas: $error')),
-      ),
+      )),
       floatingActionButton: PearlFab(
         onPressed: () {
           context.push('/courses/${widget.courseId}/lessons/new');
