@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/layout/responsive_grid.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_filter_bar.dart';
@@ -236,7 +237,7 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                     ),
                     const SizedBox(height: 8),
                     Expanded(
-                      child: ListView.separated(
+                      child: ListView(
                         // embutida: espaço para o botão "Novo ministério"
                         padding: EdgeInsets.fromLTRB(
                           24,
@@ -244,12 +245,15 @@ class _MinistriesListScreenState extends ConsumerState<MinistriesListScreen> {
                           24,
                           widget.embedded ? 88 : 0,
                         ),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 16),
-                        itemBuilder: (context, index) {
-                          final ministry = filtered[index];
-                          return _MinistryCard(ministry: ministry);
-                        },
+                        children: [
+                          ResponsiveGrid(
+                            gap: 16,
+                            children: [
+                              for (final ministry in filtered)
+                                _MinistryCard(ministry: ministry),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ],

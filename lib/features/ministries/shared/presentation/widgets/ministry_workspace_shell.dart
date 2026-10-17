@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -373,7 +374,7 @@ class _MinistryWorkspaceShellState
           const SizedBox(width: 4),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(maxWidth: 1200, child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Mesma cor da barra: a descrição é a última linha do cabeçalho,
@@ -421,7 +422,7 @@ class _MinistryWorkspaceShellState
                   ),
           ),
         ],
-      ),
+      )),
     );
   }
 }

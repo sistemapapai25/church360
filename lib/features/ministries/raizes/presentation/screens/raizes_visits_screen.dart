@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../core/layout/responsive_grid.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/utils/whatsapp_launcher.dart';
@@ -98,16 +99,22 @@ class _VisitsContentState extends ConsumerState<_VisitsContent> {
               child: visitsAsync.when(
                 data: (visits) => visits.isEmpty
                     ? _EmptyState(filter: _filter)
-                    : ListView.separated(
+                    : ListView(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                        itemCount: visits.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (_, i) => _VisitCard(
-                          visit: visits[i],
-                          onChangeStatus: (status) =>
-                              _changeStatus(visits[i], status),
-                          onSendWhatsApp: () => _sendWhatsApp(visits[i]),
-                        ),
+                        children: [
+                          ResponsiveGrid(
+                            gap: 10,
+                            children: [
+                              for (final v in visits)
+                                _VisitCard(
+                                  visit: v,
+                                  onChangeStatus: (status) =>
+                                      _changeStatus(v, status),
+                                  onSendWhatsApp: () => _sendWhatsApp(v),
+                                ),
+                            ],
+                          ),
+                        ],
                       ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => _ErrorBox(

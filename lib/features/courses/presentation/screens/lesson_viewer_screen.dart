@@ -9,6 +9,7 @@ import '../providers/courses_provider.dart';
 import '../widgets/course_lesson_notes_section.dart';
 import '../widgets/course_study_panel.dart';
 import '../widgets/course_subjects_section.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/media/inline_video.dart';
 
@@ -131,7 +132,7 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
 
               // Conteúdo
               SliverToBoxAdapter(
-                child: Column(
+                child: ReadableWidth(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Player de vídeo: o mesmo da aula da turma e do culto
@@ -175,7 +176,7 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
 
                     const SizedBox(height: 32),
                   ],
-                ),
+                )),
               ),
             ],
           ),

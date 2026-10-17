@@ -9,6 +9,7 @@ import '../providers/courses_provider.dart';
 import '../hub/course_hub_cta.dart';
 import '../widgets/course_subjects_section.dart';
 import '../widgets/course_turmas_section.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/layout/breakpoints.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -144,7 +145,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
 
               // Conteúdo
               SliverToBoxAdapter(
-                child: sideBySide
+                child: ReadableWidth(maxWidth: 1200, child: sideBySide
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -158,7 +159,7 @@ class _CourseViewerScreenState extends ConsumerState<CourseViewerScreen> {
                           ),
                         ],
                       )
-                    : column,
+                    : column),
               ),
             ],
           );

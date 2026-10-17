@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -56,7 +57,7 @@ class _OfferingConfirmScreenState extends ConsumerState<OfferingConfirmScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Ofertas do culto')),
-      body: async.when(
+      body: ReadableWidth(child: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e', textAlign: TextAlign.center)),
         data: (d) {
@@ -149,7 +150,7 @@ class _OfferingConfirmScreenState extends ConsumerState<OfferingConfirmScreen> {
             ],
           );
         },
-      ),
+      )),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../providers/ministries_provider.dart';
 import '../../shared/domain/ministry_type_catalog.dart';
 import '../../shared/presentation/providers/ministry_type_catalog_providers.dart';
@@ -145,7 +146,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             ),
         ],
       ),
-      body: ListView(
+      body: ReadableWidth(child: ListView(
         padding: CommunityDesign.overlayPadding,
         children: [
           Form(
@@ -425,7 +426,7 @@ class _MinistryFormScreenState extends ConsumerState<MinistryFormScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

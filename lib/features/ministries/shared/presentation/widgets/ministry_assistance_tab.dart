@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../../core/layout/readable_width.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/theme/app_theme.dart';
@@ -484,7 +485,7 @@ class _FamilyScreen extends ConsumerWidget {
               label: const Text('Registrar atendimento'),
             )
           : null,
-      body: f == null
+      body: ReadableWidth(child: f == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -550,7 +551,7 @@ class _FamilyScreen extends ConsumerWidget {
                         ],
                 ),
               ],
-            ),
+            )),
     );
   }
 }

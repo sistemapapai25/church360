@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../../core/layout/responsive_grid.dart';
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/design/app_icons.dart';
 import '../../../../../core/widgets/pearl_fab.dart';
@@ -151,15 +152,21 @@ class _SponsorsContentState extends ConsumerState<_SponsorsContent> {
             if (sponsors.isEmpty) {
               return _EmptyState(onAdd: () => _openForm());
             }
-            return ListView.builder(
+            return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-              itemCount: sponsors.length,
-              itemBuilder: (context, i) => _SponsorCard(
-                sponsor: sponsors[i],
-                onEdit: () => _openForm(editing: sponsors[i]),
-                onToggleActive: () => _toggleActive(sponsors[i]),
-                onDelete: () => _delete(sponsors[i]),
-              ),
+              children: [
+                ResponsiveGrid(
+                  children: [
+                    for (final s in sponsors)
+                      _SponsorCard(
+                        sponsor: s,
+                        onEdit: () => _openForm(editing: s),
+                        onToggleActive: () => _toggleActive(s),
+                        onDelete: () => _delete(s),
+                      ),
+                  ],
+                ),
+              ],
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -197,9 +204,7 @@ class _SponsorCard extends StatelessWidget {
     final photo = (sponsor.userPhotoUrl ?? '').trim();
     final criteriaChips = _buildCriteriaSummary(context);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: GlassCard(
+    return GlassCard(
         accentColor: sponsor.isActive ? null : cs.error,
         padding: EdgeInsets.zero,
         child: Material(
@@ -295,7 +300,6 @@ class _SponsorCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
     );
   }
 
