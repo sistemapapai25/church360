@@ -2400,13 +2400,11 @@ class _ChurchHomeTab extends ConsumerWidget {
                   );
                 }
 
-                return Column(
-                  children: todayEvents.map((event) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ChurchAgendaItem(event: event),
-                    );
-                  }).toList(),
+                return ResponsiveGrid(
+                  children: [
+                    for (final event in todayEvents)
+                      _ChurchAgendaItem(event: event),
+                  ],
                 );
               },
               loading: () => _ChurchLoadingCard(label: 'Carregando eventos'),
@@ -2849,18 +2847,11 @@ class _ChurchNewsFeed extends StatelessWidget {
       );
     }
 
-    final cards = <Widget>[
-      for (final aviso in avisos) _ChurchQuickNewsCard(news: aviso),
-      for (final noticia in noticias) _ChurchNewsCard(event: noticia),
-      for (final evento in eventos) _ChurchNewsCard(event: evento),
-    ];
-
-    return Column(
+    return ResponsiveGrid(
       children: [
-        for (var i = 0; i < cards.length; i++) ...[
-          if (i > 0) const SizedBox(height: 12),
-          cards[i],
-        ],
+        for (final aviso in avisos) _ChurchQuickNewsCard(news: aviso),
+        for (final noticia in noticias) _ChurchNewsCard(event: noticia),
+        for (final evento in eventos) _ChurchNewsCard(event: evento),
       ],
     );
   }

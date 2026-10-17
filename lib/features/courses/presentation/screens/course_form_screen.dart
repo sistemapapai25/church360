@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../permissions/providers/permissions_providers.dart';
@@ -267,7 +268,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -621,7 +622,7 @@ class _CourseFormScreenState extends ConsumerState<CourseFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

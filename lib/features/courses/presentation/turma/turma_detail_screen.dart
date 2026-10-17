@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -219,7 +220,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
         ),
         actions: [if (manage != null) _ManageAction(target: manage)],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _TurmaHeader(
@@ -241,7 +242,7 @@ class _TurmaDetailScreenState extends ConsumerState<TurmaDetailScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 }

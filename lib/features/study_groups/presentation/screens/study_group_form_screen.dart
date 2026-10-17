@@ -7,6 +7,7 @@ import '../../../courses/domain/models/course.dart';
 import '../../../courses/presentation/providers/courses_provider.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/widgets/glass_card.dart';
 
@@ -282,7 +283,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
       appBar: AppBar(
         title: Text(widget.groupId == null ? 'Nova turma' : 'Editar turma'),
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -477,7 +478,7 @@ class _StudyGroupFormScreenState extends ConsumerState<StudyGroupFormScreen> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

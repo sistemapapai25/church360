@@ -5,6 +5,7 @@ import '../../../members/presentation/providers/members_provider.dart';
 
 import '../providers/courses_provider.dart';
 import '../widgets/course_subjects_section.dart';
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/widgets/image_upload_widget.dart';
 import '../../../../core/widgets/video_upload_widget.dart';
 import '../../../../core/widgets/file_upload_widget.dart';
@@ -168,7 +169,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
       appBar: AppBar(
         title: Text(_isEditMode ? 'Editar Aula' : 'Nova Aula'),
       ),
-      body: _isLoading
+      body: ReadableWidth(child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
@@ -329,7 +330,7 @@ class _CourseLessonFormScreenState extends ConsumerState<CourseLessonFormScreen>
                   ),
                 ],
               ),
-            ),
+            )),
     );
   }
 }

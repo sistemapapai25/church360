@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../domain/models/course_purchase.dart';
 import '../providers/courses_provider.dart';
@@ -40,7 +41,7 @@ class _CoursePurchasesScreenState extends ConsumerState<CoursePurchasesScreen> {
           ],
         ),
       ),
-      body: purchases.when(
+      body: ReadableWidth(child: purchases.when(
         data: (items) {
           if (items.isEmpty) {
             return Center(
@@ -66,7 +67,7 @@ class _CoursePurchasesScreenState extends ConsumerState<CoursePurchasesScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erro ao carregar: $e')),
-      ),
+      )),
     );
   }
 

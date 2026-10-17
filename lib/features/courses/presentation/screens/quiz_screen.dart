@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/layout/readable_width.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/models/course_quiz.dart';
@@ -55,7 +56,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         backgroundColor: CommunityDesign.headerColor(context),
         title: Text(quiz?.title ?? 'Prova'),
       ),
-      body: questions.when(
+      body: ReadableWidth(child: questions.when(
         data: (items) {
           if (items.isEmpty) {
             return const Center(child: Text('Esta prova ainda não tem questões.'));
@@ -79,7 +80,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Erro ao carregar a prova: $error')),
-      ),
+      )),
     );
   }
 }
