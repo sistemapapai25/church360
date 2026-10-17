@@ -6,7 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:church360_app/core/theme/app_theme.dart';
 import 'package:church360_app/features/live_stream/domain/models/current_culto.dart';
 import 'package:church360_app/features/live_stream/presentation/providers/live_stream_provider.dart';
+import 'package:church360_app/features/live_stream/presentation/screens/culto_screen.dart';
 import 'package:church360_app/features/live_stream/presentation/widgets/culto_home_block.dart';
+import 'package:church360_app/features/live_stream/presentation/widgets/slides_viewer.dart';
 import 'package:church360_app/features/worship/data/geo_checkin_service.dart';
 
 import '../worship/presence_reaction_panel_test.dart'
@@ -104,6 +106,42 @@ void main() {
     expect(find.byKey(const ValueKey('culto-max')), findsOneWidget);
     expect(find.text('Abrir slides'), findsOneWidget);
     // O framework cobra a variável zerada antes dos tearDowns.
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('ampliar leva o mesmo player para a tela cheia, sem outro', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    await tester.pumpWidget(
+      _host(
+        const CurrentCulto(
+          isLive: true,
+          eventId: 'e1',
+          title: 'Culto',
+          streamUrl: 'https://x.test/live',
+          slidesUrl: 'https://x.test/culto.pptx',
+        ),
+      ),
+    );
+    await tester.pump();
+    final player = tester.element(find.byType(CultoPlayer));
+
+    await tester.tap(find.byKey(const ValueKey('culto-max')));
+    await tester.pump();
+
+    // Um player só, e é o mesmo (não foi recriado).
+    expect(find.byType(CultoFullView), findsOneWidget);
+    expect(find.byType(CultoPlayer), findsOneWidget);
+    expect(find.byType(SlidesViewer), findsOneWidget);
+    expect(tester.element(find.byType(CultoPlayer)), same(player));
+
+    await tester.tap(find.byKey(const ValueKey('culto-reduzir')));
+    await tester.pump();
+
+    expect(find.byType(CultoFullView), findsNothing);
+    expect(find.byType(CultoPlayer), findsOneWidget);
+    expect(tester.element(find.byType(CultoPlayer)), same(player));
     debugDefaultTargetPlatformOverride = null;
   });
 

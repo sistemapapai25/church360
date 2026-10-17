@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -18,17 +17,46 @@ final cultoBlockMinimizedProvider = StateProvider<String?>((_) => null);
 /// no lugar do slider de banners, uma linha com selo, nome, hora, "ampliar
 /// os dois" e **min**; embaixo, lado a lado, a transmissão já tocando e os
 /// slides (PPTX/PDF/Google Slides) com as setas do próprio visualizador.
-/// Cada card amplia sozinho (`/culto?so=video|slides`). Abaixo, a mensagem
-/// da igreja e o painel "Chegou bem?" (presença pelo celular, A4).
-class CultoHomeBlock extends ConsumerWidget {
+/// Cada card amplia sozinho. Abaixo, a mensagem da igreja e o painel
+/// "Chegou bem?" (presença pelo celular, A4).
+///
+/// Ampliar leva o **mesmo** player e os mesmos slides para a tela cheia
+/// ([CultoFullView], por cima da Home, com GlobalKey): o vídeo segue sem
+/// recomeçar. Abrir outra tela criava um segundo player e os dois tocavam.
+class CultoHomeBlock extends ConsumerStatefulWidget {
   const CultoHomeBlock({super.key});
+
+  @override
+  ConsumerState<CultoHomeBlock> createState() => _CultoHomeBlockState();
+}
+
+class _CultoHomeBlockState extends ConsumerState<CultoHomeBlock> {
+  final _video = GlobalKey(debugLabel: 'culto-video');
+  final _slides = GlobalKey(debugLabel: 'culto-slides');
+  final _portal = OverlayPortalController();
+
+  /// O que está em tela cheia: 'both', 'video', 'slides' ou nada.
+  String? _expanded;
+
+  void _open(String so) {
+    setState(() => _expanded = so);
+    _portal.show();
+  }
+
+  void _close() {
+    setState(() => _expanded = null);
+    _portal.hide();
+  }
 
   static String _key(CurrentCulto c) => c.eventId ?? c.streamUrl ?? 'culto';
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final culto = ref.watch(currentCultoProvider).valueOrNull;
-    if (culto == null || !culto.isLive) return const SizedBox.shrink();
+    if (culto == null || !culto.isLive) {
+      _expanded = null;
+      return const SizedBox.shrink();
+    }
 
     final key = _key(culto);
     final minimized = ref.watch(cultoBlockMinimizedProvider) == key;
@@ -82,9 +110,22 @@ class CultoHomeBlock extends ConsumerWidget {
       );
     }
 
-    // Abre /culto: os dois juntos (sem [so]) ou só um em tela cheia.
-    void open([String? so]) =>
-        context.push(so == null ? '/culto' : '/culto?so=$so');
+    final videoUp = _expanded == 'both' || _expanded == 'video';
+    final slidesUp = _expanded == 'both' || _expanded == 'slides';
+    final player = culto.hasStream
+        ? KeyedSubtree(
+            key: _video,
+            child: CultoPlayer(url: culto.streamUrl!),
+          )
+        : null;
+    final slides = culto.hasSlides
+        ? KeyedSubtree(
+            key: _slides,
+            child: SlidesViewer(url: culto.slidesUrl!),
+          )
+        : null;
+    // No card, o lugar do que foi para a tela cheia fica escuro.
+    const moved = ColoredBox(color: Colors.black);
 
     final header = Row(
       children: [
@@ -107,7 +148,7 @@ class CultoHomeBlock extends ConsumerWidget {
             key: const ValueKey('culto-max'),
             tooltip: 'Ampliar os dois',
             visualDensity: VisualDensity.compact,
-            onPressed: open,
+            onPressed: () => _open('both'),
             icon: const Icon(Icons.fullscreen, size: 22),
           ),
         TextButton.icon(
@@ -142,7 +183,7 @@ class CultoHomeBlock extends ConsumerWidget {
                 key: ValueKey('$so-expand'),
                 tooltip: 'Ampliar',
                 visualDensity: VisualDensity.compact,
-                onPressed: () => open(so),
+                onPressed: () => _open(so),
                 icon: const Icon(Icons.open_in_full, size: 16),
               ),
             ],
@@ -163,15 +204,14 @@ class CultoHomeBlock extends ConsumerWidget {
 
     final tiles = [
       if (culto.hasStream)
-        tile('Transmissão', 'video', CultoPlayer(url: culto.streamUrl!)),
-      if (culto.hasSlides)
-        tile('Slides', 'slides', SlidesViewer(url: culto.slidesUrl!)),
+        tile('Transmissão', 'video', videoUp ? moved : player!),
+      if (culto.hasSlides) tile('Slides', 'slides', slidesUp ? moved : slides!),
     ];
 
     final showPanel = culto.checkinEnabled;
     final showMessage = culto.message != null;
 
-    return Padding(
+    final block = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Center(
         child: SizedBox(
@@ -216,6 +256,28 @@ class CultoHomeBlock extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+
+    // "Voltar" com a tela cheia aberta só reduz.
+    return PopScope(
+      canPop: _expanded == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _close();
+      },
+      child: OverlayPortal(
+        overlayLocation: OverlayChildLocation.rootOverlay,
+        controller: _portal,
+        overlayChildBuilder: (_) => _expanded == null
+            ? const SizedBox.shrink()
+            : CultoFullView(
+                culto: culto,
+                only: _expanded == 'both' ? null : _expanded,
+                player: videoUp ? player : null,
+                slides: slidesUp ? slides : null,
+                onClose: _close,
+              ),
+        child: block,
       ),
     );
   }
