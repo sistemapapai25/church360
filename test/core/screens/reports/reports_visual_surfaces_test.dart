@@ -85,7 +85,7 @@ void main() {
           topActiveGroupsProvider.overrideWith(
             (ref) async => [
               {
-                'name': 'Comunhão Jovem',
+                'group_name': 'Comunhão Jovem',
                 'meeting_count': 4,
                 'type': 'communion',
               },

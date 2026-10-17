@@ -10,6 +10,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de Detalhes do Plano de Leitura
 class ReadingPlanDetailScreen extends ConsumerWidget {
@@ -289,7 +290,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                 ),
               ),
               SliverToBoxAdapter(
-                child: Padding(
+                child: ReadableWidth(child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,7 +627,7 @@ class ReadingPlanDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 16),
                     ],
                   ),
-                ),
+                )),
               ),
             ],
           );
