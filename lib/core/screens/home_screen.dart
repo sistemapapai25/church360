@@ -15,6 +15,8 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../constants/app_branding.dart';
 import '../domain/models/more_menu_item.dart';
 import '../providers/more_menu_layout_provider.dart';
+import '../layout/breakpoints.dart';
+import '../layout/responsive_grid.dart';
 import '../widgets/church_image.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_logo.dart';
@@ -529,6 +531,18 @@ class _DashboardTab extends ConsumerWidget {
       currentCultoProvider.select((a) => a.valueOrNull?.isLive == true),
     );
 
+    // Cabeçalho da Home: bloco do culto ou slider de banners
+    final Widget cabecalho = cultoAgora
+        ? const CultoHomeBlock()
+        : const _HomeBannerSlider();
+    final lateral = <Widget>[
+      // CTA: Comunidade
+      KeyedSubtree(key: comunidadeKey, child: const _CommunityCtaCard()),
+      _HomeSocialShortcuts(info: churchInfoAsync),
+      // Card: Para sua edificação
+      const _EdificationCard(),
+    ];
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
@@ -544,39 +558,37 @@ class _DashboardTab extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 12),
-                // Cabeçalho da Home: bloco do culto ou slider de banners
-                if (cultoAgora)
-                  const CultoHomeBlock()
-                else
-                  const _HomeBannerSlider(),
-
-                const SizedBox(height: _homeSectionGap),
-
-                // CTA: Comunidade
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _homePagePadding,
-                  ),
-                  child: KeyedSubtree(
-                    key: comunidadeKey,
-                    child: const _CommunityCtaCard(),
-                  ),
-                ),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _homePagePadding,
-                  ),
-                  child: _HomeSocialShortcuts(info: churchInfoAsync),
-                ),
-
-                // Card: Para sua edificação
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _homePagePadding,
-                  ),
-                  child: const _EdificationCard(),
-                ),
+                // PC (≥ 900): banner/culto em 2/3 e Comunidade, atalhos e
+                // edificação ao lado. Celular e tablet: a pilha de sempre.
+                if (context.breakpoint == Breakpoint.expanded)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: cabecalho),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            right: _homePagePadding,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: lateral,
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else ...[
+                  cabecalho,
+                  const SizedBox(height: _homeSectionGap),
+                  for (final w in lateral)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: _homePagePadding,
+                      ),
+                      child: w,
+                    ),
+                ],
 
                 const SizedBox(height: _homeSectionGap),
 
@@ -715,14 +727,23 @@ class _HomeBannerSliderState extends ConsumerState<_HomeBannerSlider> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _build(context, constraints.maxWidth),
+    );
+  }
+
+  Widget _build(BuildContext context, double available) {
     final bannersAsync = ref.watch(activeBannersStreamProvider);
-    final rawWidth = MediaQuery.sizeOf(context).width - (_homePagePadding * 2);
+    final rawWidth = available - (_homePagePadding * 2);
     // Trava a largura de REFERÊNCIA do banner numa faixa de celular mesmo em
     // janelas largas (web/desktop): sem isso a altura ficava presa em ~200
     // enquanto a largura crescia livre com a tela, esmagando a proporção
     // 16:9 real da imagem e cortando o topo/rodapé do design do banner (foi
     // isso que aconteceu no teste em janela larga do Chrome).
-    final width = rawWidth.clamp(0.0, 480.0);
+    // No PC o banner ocupa a coluna dele (2/3 da tela, ao lado dos cards).
+    final width = context.breakpoint == Breakpoint.expanded
+        ? rawWidth
+        : rawWidth.clamp(0.0, 480.0);
     final height = width * 9 / 16;
 
     Widget buildCarousel(List<_HomeBannerSlideItem> slides) {
@@ -1538,7 +1559,7 @@ class _HomeCoursesSection extends ConsumerWidget {
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
+              crossAxisCount: context.breakpoint == Breakpoint.compact ? 2 : 4,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
               childAspectRatio: _homeGridAspectRatio(context),
@@ -1844,160 +1865,166 @@ class _MoreTab extends ConsumerWidget {
           // PREFERÊNCIAS
           _buildSectionTitle(context, 'PREFERÊNCIAS'),
           const SizedBox(height: 12),
-          Container(
-            decoration: CommunityDesign.overlayDecoration(
-              Theme.of(context).colorScheme,
-            ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.dark_mode_outlined,
-                    size: 20,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+          ResponsiveGrid(
+            children: [
+              Container(
+                decoration: CommunityDesign.overlayDecoration(
+                  Theme.of(context).colorScheme,
+                ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.dark_mode_outlined,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(child: ThemeModeSelector()),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                const Expanded(child: ThemeModeSelector()),
-              ],
-            ),
-          ),
+              ),
 
-          // "Ver tour de novo": sem isto, um problema no tour de primeiro
-          // acesso é irreproduzível — ele só roda uma vez por aparelho.
-          if (onReabrirTour != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              decoration: CommunityDesign.overlayDecoration(
-                Theme.of(context).colorScheme,
-              ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(_homeCardRadius),
-                  onTap: onReabrirTour,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primary.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.explore_outlined,
-                            size: 20,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Ver tour de novo',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onSurface,
+              // "Ver tour de novo": sem isto, um problema no tour de primeiro
+              // acesso é irreproduzível — ele só roda uma vez por aparelho.
+              if (onReabrirTour != null) ...[
+                Container(
+                  decoration: CommunityDesign.overlayDecoration(
+                    Theme.of(context).colorScheme,
+                  ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(_homeCardRadius),
+                      onTap: onReabrirTour,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.explore_outlined,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Ver tour de novo',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 14,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.3),
+                            ),
+                          ],
                         ),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 14,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.3),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
 
-          // "Configurar esta tela" (F6). Fica em PREFERÊNCIAS, e nunca na
-          // lista configurável: se pudesse ser escondida, a pessoa se
-          // trancaria fora da própria configuração sem caminho de volta.
-          const SizedBox(height: 12),
-          _buildMenuCard(
-            context,
-            Icons.tune_outlined,
-            'Configurar esta tela',
-            '/more-settings',
-            color: Colors.blueGrey,
+              // "Configurar esta tela" (F6). Fica em PREFERÊNCIAS, e nunca na
+              // lista configurável: se pudesse ser escondida, a pessoa se
+              // trancaria fora da própria configuração sem caminho de volta.
+              _buildMenuCard(
+                context,
+                Icons.tune_outlined,
+                'Configurar esta tela',
+                '/more-settings',
+                color: Colors.blueGrey,
+              ),
+            ],
           ),
 
           const SizedBox(height: 32),
 
-          // Logout Button
-          Container(
-            decoration: CommunityDesign.overlayDecoration(
-              Theme.of(context).colorScheme,
-            ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
-            child: ListTile(
-              onTap: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('Confirmar Saída'),
-                    content: const Text('Deseja realmente sair do aplicativo?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text('Cancelar'),
+          // Logout Button (na grade: no PC ocupa uma coluna, não a tela toda)
+          ResponsiveGrid(
+            children: [
+              Container(
+                decoration: CommunityDesign.overlayDecoration(
+                  Theme.of(context).colorScheme,
+                ).copyWith(borderRadius: BorderRadius.circular(_homeCardRadius)),
+                child: ListTile(
+                  onTap: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmar Saída'),
+                        content: const Text('Deseja realmente sair do aplicativo?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('Cancelar'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text('Sair'),
+                          ),
+                        ],
                       ),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        child: const Text('Sair'),
-                      ),
-                    ],
-                  ),
-                );
+                    );
 
-                if (confirm == true && context.mounted) {
-                  await signOutAndExit(context);
-                }
-              },
-              leading: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+                    if (confirm == true && context.mounted) {
+                      await signOutAndExit(context);
+                    }
+                  },
+                  leading: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.logout, color: Colors.red, size: 20),
+                  ),
+                  title: const Text(
+                    'Sair do aplicativo',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 20,
+                    color: Colors.red,
+                  ),
                 ),
-                child: const Icon(Icons.logout, color: Colors.red, size: 20),
               ),
-              title: const Text(
-                'Sair do aplicativo',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.red,
-                ),
-              ),
-              trailing: const Icon(
-                Icons.arrow_forward_ios,
-                size: 20,
-                color: Colors.red,
-              ),
-            ),
+            ],
           ),
 
           const SizedBox(height: 24),
@@ -2038,10 +2065,29 @@ class _MoreTab extends ConsumerWidget {
         ref.watch(moreMenuLayoutProvider).asData?.value ??
         [for (final item in kMoreMenuRegistry) (item, true)];
 
-    return [
-      for (final (item, isVisible) in layout)
-        if (isVisible) _itemDaVisaoGeral(context, item),
-    ];
+    // Cards em grade (1/2/3 colunas pela largura). "Meus ministérios" é uma
+    // seção com título próprio: quebra a grade em duas, no lugar escolhido.
+    final out = <Widget>[];
+    var grupo = <Widget>[];
+    void fechaGrupo() {
+      if (grupo.isEmpty) return;
+      out
+        ..add(ResponsiveGrid(children: grupo))
+        ..add(const SizedBox(height: 12));
+      grupo = <Widget>[];
+    }
+
+    for (final (item, isVisible) in layout) {
+      if (!isVisible) continue;
+      if (item.key == 'my_ministries') {
+        fechaGrupo();
+        out.add(const _MyMinistriesSection());
+      } else {
+        grupo.add(_itemDaVisaoGeral(context, item));
+      }
+    }
+    fechaGrupo();
+    return out;
   }
 
   /// Um item da VISÃO GERAL, embrulhado no gate dele.
@@ -2049,8 +2095,8 @@ class _MoreTab extends ConsumerWidget {
   /// A ordem salva escolhe a posição; o gate continua decidindo a existência.
   /// Ordem nunca ressuscita item negado.
   ///
-  /// O espaçador de 12 vai **dentro** do gate nos itens condicionais: fora
-  /// dele, um item escondido deixaria um buraco no lugar.
+  /// Item escondido pelo gate vira `SizedBox.shrink`, e a [ResponsiveGrid]
+  /// não reserva célula para ele.
   Widget _itemDaVisaoGeral(BuildContext context, MoreMenuItem item) {
     Widget card() => _buildMenuCard(
       context,
@@ -2060,16 +2106,11 @@ class _MoreTab extends ConsumerWidget {
       color: item.color,
     );
 
-    Widget comEspaco(Widget filho) => Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [filho, const SizedBox(height: 12)],
-    );
-
     switch (item.key) {
       case 'profile':
         // `perfilCardKey` tem que continuar neste item: é o alvo do passo 1
         // do tour. Se a chave sair de lugar, o passo é pulado em silêncio.
-        return comEspaco(KeyedSubtree(key: perfilCardKey, child: card()));
+        return KeyedSubtree(key: perfilCardKey, child: card());
 
       // Admin/líder acessa o hub de Ministérios pela dashboard administrativa
       // (/dashboard → drawer "Ministérios"). Card dedicado aqui foi removido
@@ -2077,21 +2118,15 @@ class _MoreTab extends ConsumerWidget {
       case 'leadership':
         return ConditionalDashboardAccess(
           builder: (context, canAccess) =>
-              canAccess ? comEspaco(card()) : const SizedBox.shrink(),
+              canAccess ? card() : const SizedBox.shrink(),
         );
-
-      // Atalho direto para os ministérios em que a pessoa TEM vínculo. Não é o
-      // hub (/ministries, que lista os da igreja inteira): é "os meus". A
-      // seção traz o próprio espaçamento e some inteira sem vínculo.
-      case 'my_ministries':
-        return const _MyMinistriesSection();
 
       // K9: líder pra cima ou quem está em algum grupo de ministério.
       case 'messages':
         return Consumer(
           builder: (context, ref, _) =>
               ref.watch(msgCanUseProvider).asData?.value == true
-              ? comEspaco(card())
+              ? card()
               : const SizedBox.shrink(),
         );
 
@@ -2103,14 +2138,14 @@ class _MoreTab extends ConsumerWidget {
             final hasMultipleAsync = ref.watch(hasMultipleUnitsProvider);
             return hasMultipleAsync.maybeWhen(
               data: (hasMultiple) =>
-                  hasMultiple ? comEspaco(card()) : const SizedBox.shrink(),
+                  hasMultiple ? card() : const SizedBox.shrink(),
               orElse: () => const SizedBox.shrink(),
             );
           },
         );
 
       default:
-        return comEspaco(card());
+        return card();
     }
   }
 
@@ -2218,16 +2253,19 @@ class _MyMinistriesSection extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
-        for (final ministerio in ministerios) ...[
-          _MinistryShortcutCard(
-            ministry: ministerio,
-            destination: catalogoTipos.routeFor(
-              ministryId: ministerio.id,
-              code: ministerio.ministryTypeCode,
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
+        ResponsiveGrid(
+          children: [
+            for (final ministerio in ministerios)
+              _MinistryShortcutCard(
+                ministry: ministerio,
+                destination: catalogoTipos.routeFor(
+                  ministryId: ministerio.id,
+                  code: ministerio.ministryTypeCode,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
       ],
     );
   }
