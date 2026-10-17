@@ -11,6 +11,7 @@ import '../providers/bible_provider.dart';
 import '../../domain/models/bible_verse.dart';
 import '../../domain/models/bible_lexeme.dart';
 import '../../domain/models/bible_verse_token.dart';
+import '../../domain/models/bible_word_study.dart';
 import '../../data/bible_repository.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
@@ -48,6 +49,9 @@ class BibleReaderScreen extends ConsumerWidget {
     final bookAsync = ref.watch(bibleBookByIdProvider(bookId));
     final tokensAsync = ref.watch(
       bibleChapterVerseTokensProvider((bookId: bookId, chapter: chapter)),
+    );
+    final studiesAsync = ref.watch(
+      bibleChapterWordStudiesProvider((bookId: bookId, chapter: chapter)),
     );
     final fontSize = ref.watch(fontSizeProvider);
 
@@ -202,6 +206,12 @@ class BibleReaderScreen extends ConsumerWidget {
                         chapter: chapter,
                       )),
                     );
+                    ref.invalidate(
+                      bibleChapterWordStudiesProvider((
+                        bookId: bookId,
+                        chapter: chapter,
+                      )),
+                    );
                   },
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -215,6 +225,7 @@ class BibleReaderScreen extends ConsumerWidget {
                         verse: verse,
                         fontSize: fontSize,
                         tokens: tokensByVerseId[verse.id] ?? const [],
+                        studies: studiesAsync.value?[verse.id] ?? const [],
                       );
                     },
                   ),
@@ -322,11 +333,13 @@ class _VerseItem extends ConsumerWidget {
   final BibleVerse verse;
   final double fontSize;
   final List<BibleVerseToken> tokens;
+  final List<BibleWordStudy> studies;
 
   const _VerseItem({
     required this.verse,
     required this.fontSize,
     required this.tokens,
+    this.studies = const [],
   });
 
   void _showVerseOptions(BuildContext context, WidgetRef ref) {
@@ -453,6 +466,14 @@ class _VerseItem extends ConsumerWidget {
                           anchor: anchor,
                           lexeme: lexeme,
                           surface: surface,
+                          study: studies
+                              .where(
+                                (s) => s.matches(
+                                  strongCode: lexeme.strongCode,
+                                  surface: surface,
+                                ),
+                              )
+                              .firstOrNull,
                         );
                       },
                     ),
@@ -532,6 +553,7 @@ void _showLexemeOverlay({
   required Offset anchor,
   required BibleLexeme lexeme,
   required String surface,
+  BibleWordStudy? study,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
 
@@ -539,10 +561,18 @@ void _showLexemeOverlay({
   entry = OverlayEntry(
     builder: (overlayContext) {
       final size = MediaQuery.sizeOf(overlayContext);
-      final padding = 12.0;
-      final width = math.min(340.0, size.width - (padding * 2));
-      final isAbove = anchor.dy > (size.height * 0.6);
-      final maxHeight = math.min(280.0, size.height * 0.45);
+      const padding = 12.0;
+      final hasStudy = study != null;
+      // Com estudo o pop-up cresce; o resto rola dentro dele.
+      final width = math.min(hasStudy ? 460.0 : 360.0, size.width - (padding * 2));
+      final isAbove = anchor.dy > size.height * (hasStudy ? 0.5 : 0.6);
+      final room = isAbove
+          ? anchor.dy - 18 - padding
+          : size.height - anchor.dy - 18 - padding;
+      final desired = hasStudy
+          ? math.min(680.0, size.height * 0.82)
+          : math.min(320.0, size.height * 0.5);
+      final maxHeight = math.min(desired, math.max(room, 240.0));
 
       final left = (anchor.dx - (width / 2)).clamp(
         padding,
@@ -580,6 +610,7 @@ void _showLexemeOverlay({
                   child: _LexemeCard(
                     lexeme: lexeme,
                     surface: surface,
+                    study: study,
                     onClose: () => entry?.remove(),
                   ),
                 ),
@@ -594,86 +625,86 @@ void _showLexemeOverlay({
   overlay.insert(entry);
 }
 
+const _ubsCredit =
+    'Dicionário Semântico do Hebraico Bíblico, © Sociedades Bíblicas Unidas, CC BY-SA 4.0';
+
+String _languageLabel(String language) => switch (language) {
+  'hebrew' => 'Hebraico',
+  'aramaic' => 'Aramaico',
+  'greek' => 'Grego',
+  _ => language,
+};
+
 class _LexemeCard extends StatelessWidget {
   final BibleLexeme lexeme;
   final String surface;
+  final BibleWordStudy? study;
   final VoidCallback onClose;
 
   const _LexemeCard({
     required this.lexeme,
     required this.surface,
     required this.onClose,
+    this.study,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final meta = CommunityDesign.metaStyle(context);
     final lemmaText = (lexeme.lemma ?? '').trim();
     final transliterationText = (lexeme.transliteration ?? '').trim();
     final glossText = (lexeme.ptGloss ?? '').trim();
     final definitionText = (lexeme.ptDefinition ?? '').trim();
 
     final hasLemma = lemmaText.isNotEmpty;
-    final hasTransliteration = transliterationText.isNotEmpty;
     final hasGloss = glossText.isNotEmpty;
-    final hasDefinition = definitionText.isNotEmpty;
 
     final headline = hasLemma ? lemmaText : (hasGloss ? glossText : '');
-    final meaning = hasDefinition
+    final meaning = definitionText.isNotEmpty
         ? definitionText
         : (hasLemma && hasGloss ? glossText : null);
+    final outline = cs.outlineVariant.withValues(alpha: 0.65);
 
     return Container(
-      decoration:
-          CommunityDesign.feedCardDecoration(
-            Theme.of(context).colorScheme,
-          ).copyWith(
-            borderRadius: BorderRadius.circular(CommunityDesign.radius),
-            border: Border.all(
-              color: Theme.of(
-                context,
-              ).colorScheme.outlineVariant.withValues(alpha: 0.65),
-            ),
-          ),
+      decoration: CommunityDesign.feedCardDecoration(cs).copyWith(
+        borderRadius: BorderRadius.circular(CommunityDesign.radius),
+        border: Border.all(color: outline),
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(CommunityDesign.radius),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.fromLTRB(14, 12, 6, 10),
+              padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.outlineVariant.withValues(alpha: 0.65),
-                  ),
-                ),
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
+                border: Border(bottom: BorderSide(color: outline)),
               ),
               child: Row(
                 children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      lexeme.strongCode,
+                      style: meta.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          lexeme.strongCode,
-                          style: CommunityDesign.titleStyle(context).copyWith(
-                            fontWeight: FontWeight.w800,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          surface,
-                          style: CommunityDesign.metaStyle(context),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: Text(
+                      '${_languageLabel(lexeme.language)} · “$surface”',
+                      style: meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
@@ -686,40 +717,264 @@ class _LexemeCard extends StatelessWidget {
             ),
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (headline.isNotEmpty)
                       Text(
                         headline,
-                        style: CommunityDesign.titleStyle(
-                          context,
-                        ).copyWith(fontWeight: FontWeight.w800),
+                        style: CommunityDesign.titleStyle(context).copyWith(
+                          fontSize: hasLemma ? 28 : null,
+                          fontWeight: hasLemma ? FontWeight.w600 : FontWeight.w800,
+                          height: 1.2,
+                        ),
                       ),
-                    if (headline.isNotEmpty) const SizedBox(height: 6),
-                    if (hasTransliteration || (hasGloss && hasLemma))
+                    if (transliterationText.isNotEmpty) ...[
+                      const SizedBox(height: 2),
                       Text(
-                        [
-                          if (hasTransliteration) transliterationText,
-                          if (hasGloss && hasLemma) glossText,
-                        ].join(' • '),
-                        style: CommunityDesign.metaStyle(context),
+                        transliterationText,
+                        style: meta.copyWith(fontStyle: FontStyle.italic),
                       ),
-                    if (hasTransliteration || (hasGloss && hasLemma))
-                      const SizedBox(height: 10),
+                    ],
+                    if (hasGloss && hasLemma) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        glossText,
+                        style: CommunityDesign.contentStyle(context).copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
                     Text(
                       meaning ?? 'Definição em PT ainda não cadastrada.',
-                      style: CommunityDesign.contentStyle(
-                        context,
-                      ).copyWith(height: 1.45),
+                      style: CommunityDesign.contentStyle(context).copyWith(height: 1.5),
                     ),
+                    if (lexeme.ptSource == 'UBS SDBH pt') ...[
+                      const SizedBox(height: 8),
+                      Text(_ubsCredit, style: meta.copyWith(fontSize: 11)),
+                    ],
+                    if (study != null) _WordStudyView(study: study!),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Estudo palavra por palavra no padrão de backend-scripts/lexico/MODELO-ESTUDO.md.
+class _WordStudyView extends StatelessWidget {
+  final BibleWordStudy study;
+
+  const _WordStudyView({required this.study});
+
+  static const _defaultTitles = {
+    'etimologia': 'Etimologia',
+    'pictografia': 'Análise pictórica',
+    'sintese': 'Síntese pictórica',
+    'contexto': 'Contexto',
+    'peso_teologico': 'Peso teológico',
+    'conclusao': 'Conclusão',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final meta = CommunityDesign.metaStyle(context);
+    final original = [
+      if ((study.palavraOriginal ?? '').isNotEmpty) study.palavraOriginal!,
+      if ((study.transliteracao ?? '').isNotEmpty) study.transliteracao!,
+    ].join(' · ');
+    final raiz = [
+      if ((study.raiz ?? '').isNotEmpty) study.raiz!,
+      if ((study.raizTransliteracao ?? '').isNotEmpty) '(${study.raizTransliteracao})',
+    ].join(' ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 18),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.auto_stories_outlined, size: 16, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'ESTUDO DA PALAVRA',
+                    style: meta.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.8,
+                      color: cs.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                study.titulo,
+                style: CommunityDesign.titleStyle(context).copyWith(fontWeight: FontWeight.w800),
+              ),
+              if (original.isNotEmpty) Text(original, style: meta),
+              if (raiz.isNotEmpty) Text('Raiz: $raiz', style: meta),
+            ],
+          ),
+        ),
+        for (final secao in study.secoes) _section(context, secao),
+      ],
+    );
+  }
+
+  Widget _section(BuildContext context, Map<String, dynamic> secao) {
+    final cs = Theme.of(context).colorScheme;
+    final tipo = secao['tipo'] as String? ?? '';
+    final titulo = (secao['titulo'] as String?)?.trim();
+    final blocos = (secao['blocos'] as List? ?? const []).whereType<Map<String, dynamic>>();
+    final children = <Widget>[
+      Text(
+        (titulo == null || titulo.isEmpty) ? (_defaultTitles[tipo] ?? '') : titulo,
+        style: CommunityDesign.titleStyle(context).copyWith(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: 8),
+      for (final bloco in blocos) _block(context, bloco),
+    ];
+
+    if (tipo == 'conclusao') {
+      return Container(
+        margin: const EdgeInsets.only(top: 18),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+        decoration: BoxDecoration(
+          color: cs.secondaryContainer.withValues(alpha: 0.45),
+          borderRadius: BorderRadius.circular(14),
+          border: Border(left: BorderSide(color: cs.primary, width: 3)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
+    );
+  }
+
+  Widget _block(BuildContext context, Map<String, dynamic> bloco) {
+    final cs = Theme.of(context).colorScheme;
+    final content = CommunityDesign.contentStyle(context).copyWith(height: 1.55);
+    switch (bloco['tipo']) {
+      case 'subtitulo':
+        return Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 6),
+          child: Text(
+            bloco['texto'] as String? ?? '',
+            style: content.copyWith(fontWeight: FontWeight.w700),
+          ),
+        );
+      case 'lista':
+        final itens = (bloco['itens'] as List? ?? const []).whereType<String>();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final item in itens)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('•  ', style: content.copyWith(color: cs.primary)),
+                      Expanded(child: _listItem(item, content)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      case 'letras':
+        final letras = (bloco['letras'] as List? ?? const []).whereType<Map<String, dynamic>>();
+        return Column(
+          children: [
+            for (final letra in letras)
+              Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        letra['glifo'] as String? ?? '',
+                        style: TextStyle(fontSize: 26, color: cs.primary, height: 1.1),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            letra['nome'] as String? ?? '',
+                            style: content.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          Text(letra['descricao'] as String? ?? '', style: content),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      default:
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(bloco['texto'] as String? ?? '', style: content),
+        );
+    }
+  }
+
+  /// "Significado Original: o verbo..." -> trecho antes de ":" em negrito.
+  static Widget _listItem(String item, TextStyle style) {
+    final i = item.indexOf(':');
+    if (i <= 0 || i > 60) return Text(item, style: style);
+    return Text.rich(
+      TextSpan(
+        style: style,
+        children: [
+          TextSpan(
+            text: item.substring(0, i + 1),
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          TextSpan(text: item.substring(i + 1)),
+        ],
       ),
     );
   }

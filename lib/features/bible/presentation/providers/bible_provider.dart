@@ -7,6 +7,7 @@ import '../../domain/models/bible_verse.dart';
 import '../../domain/models/bible_bookmark.dart';
 import '../../domain/models/bible_lexeme.dart';
 import '../../domain/models/bible_verse_token.dart';
+import '../../domain/models/bible_word_study.dart';
 
 /// Provider do repository da Bíblia
 final bibleRepositoryProvider = Provider<BibleRepository>((ref) {
@@ -47,6 +48,12 @@ final bibleChapterVerseTokensProvider =
     FutureProvider.family<Map<int, List<BibleVerseToken>>, ({int bookId, int chapter})>((ref, params) async {
   final repo = ref.watch(bibleRepositoryProvider);
   return repo.getVerseTokensByChapter(params.bookId, params.chapter);
+});
+
+final bibleChapterWordStudiesProvider =
+    FutureProvider.family<Map<int, List<BibleWordStudy>>, ({int bookId, int chapter})>((ref, params) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  return repo.getWordStudiesByChapter(params.bookId, params.chapter);
 });
 
 /// Provider de versículo específico
