@@ -146,7 +146,6 @@ import '../screens/reports/active_groups_report.dart';
 import '../screens/dashboard_settings_screen.dart';
 import '../screens/more_tab_settings_screen.dart';
 import '../screens/user_dashboard_settings_screen.dart';
-import '../screens/developer_settings_screen.dart';
 import '../../features/duplicates/presentation/screens/duplicate_accounts_screen.dart';
 import '../screens/splash_screen.dart';
 import '../screens/home_screen.dart';
@@ -1998,12 +1997,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/more-settings',
       builder: (context, state) => const MoreTabSettingsScreen(),
-    ),
-
-    GoRoute(
-      path: '/developer-settings',
-      builder: (context, state) =>
-          const OwnerOnlyRoute(child: DeveloperSettingsScreen()),
     ),
 
     // Vincular cadastros (fichas duplicadas). As RPCs por tras da tela
