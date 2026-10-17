@@ -459,7 +459,7 @@ class _ManageLiveStreamScreenState
           await repo.notifyLiveStreamActive(
             title: 'Culto ao vivo',
             body: 'Estamos ao vivo agora. Toque para assistir.',
-            route: '/live-stream',
+            route: '/home',
           );
         } catch (_) {}
       }
