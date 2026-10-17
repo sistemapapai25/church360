@@ -5,6 +5,7 @@ import '../../domain/models/custom_report.dart';
 import '../providers/custom_report_providers.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de listagem de relatórios customizados
 class CustomReportsListScreen extends ConsumerStatefulWidget {
@@ -54,7 +55,9 @@ class _CustomReportsListScreenState extends ConsumerState<CustomReportsListScree
               ref.invalidate(allCustomReportsProvider);
               ref.invalidate(myCustomReportsProvider);
             },
-            child: ListView.builder(
+            child: ResponsiveGridList(
+              gap: 12,
+              rowGap: 0, // o card já traz o espaço de baixo
               padding: const EdgeInsets.all(16),
               itemCount: reports.length,
               itemBuilder: (context, index) {

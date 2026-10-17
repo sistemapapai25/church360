@@ -18,6 +18,7 @@ import '../widgets/financeiro_quick_create.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/layout/readable_width.dart';
 
 class LancamentoFormScreen extends ConsumerStatefulWidget {
   final String? lancamentoId;
@@ -232,7 +233,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
               ),
           ],
         ),
-        body: _isLoading
+        body: ReadableWidth(child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Center(
                 child: ConstrainedBox(
@@ -280,7 +281,7 @@ class _LancamentoFormScreenState extends ConsumerState<LancamentoFormScreen> {
                     ),
                   ),
                 ),
-              ),
+              )),
       ),
     );
   }

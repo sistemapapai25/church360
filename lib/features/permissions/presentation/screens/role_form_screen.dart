@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
 import '../../../access_levels/domain/models/access_level.dart';
+import '../../../../core/layout/readable_width.dart';
 class _ParentRoleOption {
   const _ParentRoleOption(this.value, this.label);
 
@@ -98,7 +99,7 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -349,7 +350,7 @@ class _RoleFormScreenState extends ConsumerState<RoleFormScreen> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
+      )),
     );
   }
 

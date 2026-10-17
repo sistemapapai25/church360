@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../providers/financial_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Enum para períodos de filtro
 enum ReportPeriod {
@@ -47,7 +48,7 @@ class _FinancialReportsScreenState
         backgroundColor: CommunityDesign.headerColor(context),
         title: Text('Relatórios Financeiros', style: CommunityDesign.titleStyle(context)),
       ),
-      body: ListView(
+      body: ReadableWidth(maxWidth: 1200, child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Filtro de Período
@@ -73,7 +74,7 @@ class _FinancialReportsScreenState
           // Despesas por Categoria
           _buildExpensesByCategory(startDate, endDate),
         ],
-      ),
+      )),
     );
   }
 

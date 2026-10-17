@@ -6,6 +6,7 @@ import '../../design/app_icons.dart';
 import '../../../features/financeiro/domain/models/lancamento.dart';
 import '../../../features/financeiro/presentation/providers/financeiro_providers.dart';
 import '../../widgets/glass_card.dart';
+import '../../layout/readable_width.dart';
 
 /// Enum para períodos de filtro
 enum ExpensePeriod {
@@ -74,7 +75,7 @@ class _UpcomingExpensesReportScreenState
           ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(maxWidth: 1200, child: Column(
         children: [
           // Filtro de Período
           _buildPeriodFilter(),
@@ -310,7 +311,7 @@ class _UpcomingExpensesReportScreenState
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

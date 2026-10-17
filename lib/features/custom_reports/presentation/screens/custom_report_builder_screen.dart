@@ -8,6 +8,7 @@ import '../../domain/models/report_config.dart';
 import '../../domain/models/metric_template.dart';
 import '../../domain/metadata/data_source_metadata.dart';
 import '../providers/custom_report_providers.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de criação/edição de relatório customizado (Wizard)
 class CustomReportBuilderScreen extends ConsumerStatefulWidget {
@@ -131,7 +132,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
             ),
         ],
       ),
-      body: _isLoading
+      body: ReadableWidth(child: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -157,7 +158,7 @@ class _CustomReportBuilderScreenState extends ConsumerState<CustomReportBuilderS
                 // Botões de navegação
                 _buildNavigationButtons(),
               ],
-            ),
+            )),
     );
   }
 

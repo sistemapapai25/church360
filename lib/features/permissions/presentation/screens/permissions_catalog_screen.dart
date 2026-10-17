@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
 import '../permission_category_display.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de Catálogo de Permissões
 /// Exibe todas as permissões disponíveis no sistema
@@ -35,7 +36,7 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           // Barra de busca
           Padding(
@@ -191,7 +192,7 @@ class _PermissionsCatalogScreenState extends ConsumerState<PermissionsCatalogScr
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

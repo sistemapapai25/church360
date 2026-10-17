@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/design/community_design.dart';
 import '../providers/financial_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de formulário de meta financeira
 class FinancialGoalFormScreen extends ConsumerStatefulWidget {
@@ -189,7 +190,7 @@ class _FinancialGoalFormScreenState
             ),
         ],
       ),
-      body: Form(
+      body: ReadableWidth(child: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -355,7 +356,7 @@ class _FinancialGoalFormScreenState
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

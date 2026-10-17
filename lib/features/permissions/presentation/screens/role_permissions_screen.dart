@@ -6,6 +6,7 @@ import '../../providers/permissions_providers.dart';
 import '../../domain/models/permission.dart';
 import '../permission_category_display.dart';
 import '../../../ministries/presentation/providers/ministries_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de Permissões do Cargo
 /// Gerenciar quais permissões um cargo possui
@@ -92,7 +93,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
             ),
         ],
       ),
-      body: Column(
+      body: ReadableWidth(child: Column(
         children: [
           // Header com nome do cargo
           roleAsync.when(
@@ -319,7 +320,7 @@ class _RolePermissionsScreenState extends ConsumerState<RolePermissionsScreen> {
             ),
           ),
         ],
-      ),
+      )),
     );
   }
 

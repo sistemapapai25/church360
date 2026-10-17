@@ -8,6 +8,7 @@ import '../../providers/permissions_providers.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 import '../../../members/domain/models/member.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de Usuários e Cargos
 /// Exibe todos os usuários e seus cargos atribuídos
@@ -114,7 +115,9 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                   );
                 }
 
-                return ListView.builder(
+                return ResponsiveGridList(
+                  gap: 12,
+                  rowGap: 0, // o card já traz o espaço de baixo
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: filteredMembers.length,
                   itemBuilder: (context, index) {

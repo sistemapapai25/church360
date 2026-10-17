@@ -9,6 +9,7 @@ import '../../../../core/widgets/pearl_fab.dart';
 import '../../domain/models/contribution.dart';
 import '../providers/financial_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela principal do sistema financeiro
 class FinancialScreen extends ConsumerStatefulWidget {
@@ -62,14 +63,14 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen>
           ],
         ),
       ),
-      body: TabBarView(
+      body: ReadableWidth(maxWidth: 1200, child: TabBarView(
         controller: _tabController,
         children: const [
           _ContributionsTab(),
           _ExpensesTab(),
           _GoalsTab(),
         ],
-      ),
+      )),
       floatingActionButton: PermissionGate(
         permission: _tabController.index == 0
             ? 'financial.create_contribution'

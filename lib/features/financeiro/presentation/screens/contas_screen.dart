@@ -13,6 +13,7 @@ import '../../domain/models/conta_financeira.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 class ContasScreen extends ConsumerWidget {
   const ContasScreen({super.key});
@@ -77,7 +78,8 @@ class ContasScreen extends ConsumerWidget {
       );
     }
 
-    return ListView.builder(
+    return ResponsiveGridList(
+      gap: 12,
       padding: const EdgeInsets.all(16),
       itemCount: contas.length,
       itemBuilder: (context, index) {

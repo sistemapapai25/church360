@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/permissions_providers.dart';
 import '../../domain/models/role.dart';
 import '../../../../core/widgets/pearl_fab.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 /// Tela de Lista de Cargos
 /// Exibe todos os cargos com hierarquia visual
@@ -147,7 +148,9 @@ class _RolesListScreenState extends ConsumerState<RolesListScreen> {
                   onRefresh: () async {
                     ref.invalidate(allRolesProvider);
                   },
-                  child: ListView.builder(
+                  child: ResponsiveGridList(
+                    gap: 12,
+                    rowGap: 0, // o card já traz o espaço de baixo
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: rootRoles.length,
                     itemBuilder: (context, index) {

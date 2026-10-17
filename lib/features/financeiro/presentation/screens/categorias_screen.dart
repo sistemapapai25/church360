@@ -12,6 +12,7 @@ import '../../domain/models/categoria.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/layout/responsive_grid.dart';
 
 class CategoriasScreen extends ConsumerWidget {
   const CategoriasScreen({super.key});
@@ -74,7 +75,8 @@ class CategoriasScreen extends ConsumerWidget {
       );
     }
 
-    return ListView.builder(
+    return ResponsiveGridList(
+      gap: 12,
       padding: const EdgeInsets.all(16),
       itemCount: categorias.length,
       itemBuilder: (context, index) {
