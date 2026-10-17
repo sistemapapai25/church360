@@ -505,6 +505,34 @@ class CoursesRepository {
   Future<void> completeLesson(String lessonId) =>
       _supabase.rpc('lesson_complete', params: {'p_lesson_id': lessonId});
 
+  // ==================== ANOTAÇÕES DA AULA (P4) ====================
+
+  /// Minhas anotações na aula gravada (`course_lesson_note`, a RLS só
+  /// devolve as do próprio aluno), da mais nova para a mais velha.
+  Future<List<CourseLessonNote>> getLessonNotes(String lessonId) async {
+    final rows = await _supabase
+        .from('course_lesson_note')
+        .select('id, body, created_at')
+        .eq('lesson_id', lessonId)
+        .order('created_at', ascending: false);
+    return [
+      for (final r in rows)
+        (
+          id: r['id'] as String,
+          body: r['body'] as String,
+          createdAt: DateTime.parse(r['created_at'] as String),
+        ),
+    ];
+  }
+
+  /// tenant_id e user_id vêm dos defaults da tabela.
+  Future<void> addLessonNote(String lessonId, String body) => _supabase
+      .from('course_lesson_note')
+      .insert({'lesson_id': lessonId, 'body': body});
+
+  Future<void> deleteLessonNote(String id) =>
+      _supabase.from('course_lesson_note').delete().eq('id', id);
+
   // ==================== PROVAS (E4) ====================
 
   /// Provas do curso que a RLS deixa ver (módulo e final).

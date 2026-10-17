@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../domain/models/course_lesson.dart';
 import '../../domain/models/course_progress.dart';
 import '../providers/courses_provider.dart';
+import '../widgets/course_lesson_notes_section.dart';
 import '../widgets/course_study_panel.dart';
 import '../widgets/course_subjects_section.dart';
 import '../../../../core/design/community_design.dart';
@@ -161,6 +162,11 @@ class _LessonViewerScreenState extends ConsumerState<LessonViewerScreen> {
 
                     // Botões de ação (arquivo anexo)
                     if (lesson.fileUrl != null) _buildActionButtons(context, lesson),
+
+                    const SizedBox(height: 24),
+
+                    // P4: anotações pessoais do aluno
+                    CourseLessonNotesSection(lessonId: lesson.id),
 
                     const SizedBox(height: 32),
 

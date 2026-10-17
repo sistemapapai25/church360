@@ -172,3 +172,6 @@ class CourseLesson {
   }
 }
 
+
+/// Anotação pessoal do aluno na aula gravada (`course_lesson_note`, P4).
+typedef CourseLessonNote = ({String id, String body, DateTime createdAt});
