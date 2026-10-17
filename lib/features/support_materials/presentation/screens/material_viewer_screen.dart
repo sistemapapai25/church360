@@ -7,6 +7,7 @@ import '../../domain/models/support_material.dart';
 import '../../domain/models/support_material_module.dart';
 import '../providers/support_materials_provider.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de visualização de material de apoio
 class MaterialViewerScreen extends ConsumerStatefulWidget {
@@ -45,7 +46,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
 
               // Conteúdo
               SliverToBoxAdapter(
-                child: Column(
+                child: ReadableWidth(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Informações do material
@@ -77,7 +78,7 @@ class _MaterialViewerScreenState extends ConsumerState<MaterialViewerScreen> {
 
                     const SizedBox(height: 32),
                   ],
-                ),
+                )),
               ),
             ],
           );

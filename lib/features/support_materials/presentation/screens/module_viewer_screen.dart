@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/models/support_material_module.dart';
 import '../providers/support_materials_provider.dart';
+import '../../../../core/layout/readable_width.dart';
 
 /// Tela de visualização de módulo individual
 class ModuleViewerScreen extends ConsumerWidget {
@@ -40,7 +41,7 @@ class ModuleViewerScreen extends ConsumerWidget {
 
               // Conteúdo
               SliverToBoxAdapter(
-                child: Column(
+                child: ReadableWidth(child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Informações do módulo
@@ -66,7 +67,7 @@ class ModuleViewerScreen extends ConsumerWidget {
 
                     const SizedBox(height: 32),
                   ],
-                ),
+                )),
               ),
             ],
           );

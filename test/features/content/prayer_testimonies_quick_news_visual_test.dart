@@ -116,6 +116,7 @@ void main() {
     await tester.pumpWidget(
       _host(const TestimoniesListScreen(), [
         allTestimoniesProvider.overrideWith((ref) async => [_testimony()]),
+        currentUserIdProvider.overrideWithValue(null),
         currentUserHasPermissionProvider(
           'testimonies.create',
         ).overrideWith((ref) async => false),
