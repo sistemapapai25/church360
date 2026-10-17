@@ -1929,8 +1929,7 @@ final appRouter = GoRouter(
             (state.uri.queryParameters['q'] ??
                     state.uri.queryParameters['strong'])
                 ?.trim();
-        return PermissionOnlyRoute(
-          permission: 'bible.manage_lexicon',
+        return OwnerOnlyRoute(
           child: BibleLexiconEditorScreen(initialQuery: initialQuery),
         );
       },

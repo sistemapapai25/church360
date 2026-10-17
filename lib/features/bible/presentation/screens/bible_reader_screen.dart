@@ -15,7 +15,7 @@ import '../../data/bible_repository.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/glass_card.dart';
-import '../../../permissions/presentation/widgets/permission_gate.dart';
+import '../../../permissions/providers/permissions_providers.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Provider para tamanho de fonte
@@ -141,15 +141,13 @@ class BibleReaderScreen extends ConsumerWidget {
               PopupMenuItem(value: 20.0, child: Text('Muito Grande')),
             ],
           ),
-          PermissionGate(
-            permission: 'bible.manage_lexicon',
-            showLoading: false,
-            child: IconButton(
+          // Só o Owner edita léxico e estudos; nenhum cargo recebe isso (17/10/2026).
+          if (ref.watch(currentUserIsOwnerProvider).valueOrNull ?? false)
+            IconButton(
               tooltip: 'Editar léxico (Strong)',
               onPressed: () => context.push('/bible/lexicon'),
               icon: const Icon(AppIcons.translate),
             ),
-          ),
         ],
       ),
       body: versesAsync.when(
