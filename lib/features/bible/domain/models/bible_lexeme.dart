@@ -7,6 +7,9 @@ class BibleLexeme {
   final String? ptGloss;
   final String? ptDefinition;
 
+  /// Origem do português (ex.: 'UBS SDBH pt', que exige crédito na tela).
+  final String? ptSource;
+
   const BibleLexeme({
     required this.id,
     required this.strongCode,
@@ -15,6 +18,7 @@ class BibleLexeme {
     this.transliteration,
     this.ptGloss,
     this.ptDefinition,
+    this.ptSource,
   });
 
   factory BibleLexeme.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,7 @@ class BibleLexeme {
       transliteration: json['transliteration'] as String?,
       ptGloss: json['pt_gloss'] as String?,
       ptDefinition: json['pt_definition'] as String?,
+      ptSource: json['pt_source'] as String?,
     );
   }
 
@@ -58,6 +63,7 @@ class BibleLexeme {
       transliteration: transliteration ?? this.transliteration,
       ptGloss: ptGloss ?? this.ptGloss,
       ptDefinition: ptDefinition ?? this.ptDefinition,
+      ptSource: ptSource,
     );
   }
 

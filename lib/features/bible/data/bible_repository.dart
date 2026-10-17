@@ -6,6 +6,7 @@ import '../domain/models/bible_verse.dart';
 import '../domain/models/bible_bookmark.dart';
 import '../domain/models/bible_lexeme.dart';
 import '../domain/models/bible_verse_token.dart';
+import '../domain/models/bible_word_study.dart';
 
 /// Repository para gerenciar dados da Bíblia
 class BibleRepository {
@@ -296,6 +297,23 @@ class BibleRepository {
       byVerseId.putIfAbsent(token.verseId, () => []).add(token);
     }
 
+    return byVerseId;
+  }
+
+  /// Estudos publicados do capítulo, por versículo (RLS só entrega 'publicado').
+  Future<Map<int, List<BibleWordStudy>>> getWordStudiesByChapter(int bookId, int chapter) async {
+    final rows = await _supabase
+        .from('bible_word_study_occurrence')
+        .select('verse_id, palavra_pt, secoes, bible_word_study!inner(*), bible_verse!inner(book_id, chapter)')
+        .eq('bible_verse.book_id', bookId)
+        .eq('bible_verse.chapter', chapter)
+        .order('ordem', ascending: true);
+
+    final byVerseId = <int, List<BibleWordStudy>>{};
+    for (final row in rows as List) {
+      final study = BibleWordStudy.fromOccurrenceJson(row as Map<String, dynamic>);
+      byVerseId.putIfAbsent(study.verseId, () => []).add(study);
+    }
     return byVerseId;
   }
 
