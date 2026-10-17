@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/live_stream_repository.dart';
 import '../../domain/models/current_culto.dart';
 import '../../domain/models/live_stream.dart';
+import '../widgets/culto_silence_row.dart';
 
 final liveStreamRepositoryProvider = Provider<LiveStreamRepository>((ref) {
   return LiveStreamRepository(Supabase.instance.client);
@@ -31,6 +32,8 @@ final currentCultoProvider = StreamProvider<CurrentCulto>((ref) {
   Future<void> load() async {
     try {
       final culto = await repo.currentCulto();
+      // Acabou o culto: desliga o Não perturbe que o app ligou (P2).
+      if (!culto.isLive) CultoSilence.restore();
       if (!controller.isClosed) controller.add(culto);
     } catch (_) {}
   }
