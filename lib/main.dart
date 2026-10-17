@@ -502,6 +502,9 @@ class Church360App extends ConsumerWidget {
                     final chat = SupportChatContainer(
                       title: 'Fale Conosco',
                       bottomOffset: bottomOffset,
+                      // Push "Resposta do atendimento" abre /home?suporte=1.
+                      defaultOpen:
+                          effectiveCurrentUri.queryParameters['suporte'] == '1',
                       agentKey: selectedAgent.key,
                       accentColor: selectedAgent.themeColor,
                       childBuilder: (onAgentChanged, agentKey, accentColor) =>

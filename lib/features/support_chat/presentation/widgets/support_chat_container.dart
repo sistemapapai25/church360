@@ -135,6 +135,10 @@ class _SupportChatContainerState extends ConsumerState<SupportChatContainer>
   @override
   void didUpdateWidget(covariant SupportChatContainer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.defaultOpen && !oldWidget.defaultOpen && !_isOpen) {
+      _isOpen = true;
+      _controller.forward();
+    }
     final agentKeyChanged =
         oldWidget.agentKey.toLowerCase() != widget.agentKey.toLowerCase();
     final colorChanged = oldWidget.accentColor != widget.accentColor;
