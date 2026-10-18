@@ -55,6 +55,13 @@ final bibleChapterWordStudiesProvider =
   return repo.getWordStudiesByChapter(params.bookId, params.chapter);
 });
 
+/// Fechamento do capítulo (ex.: conclusão do estudo do Salmo 91)
+final bibleChapterNoteProvider =
+    FutureProvider.family<({String titulo, String texto})?, ({int bookId, int chapter})>((ref, params) async {
+  final repo = ref.watch(bibleRepositoryProvider);
+  return repo.getChapterNote(params.bookId, params.chapter);
+});
+
 /// Provider de versículo específico
 final bibleVerseProvider = FutureProvider.family<BibleVerse?, ({int bookId, int chapter, int verse})>((ref, params) async {
   final repo = ref.watch(bibleRepositoryProvider);
