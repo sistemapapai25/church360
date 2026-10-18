@@ -118,7 +118,6 @@ import '../../features/reading_plans/presentation/screens/reading_plan_form_scre
 import '../../features/bible/presentation/screens/bible_books_screen.dart';
 import '../../features/bible/presentation/screens/bible_bookmarks_screen.dart';
 import '../../features/bible/presentation/screens/bible_chapters_screen.dart';
-import '../../features/bible/presentation/screens/bible_lexicon_editor_screen.dart';
 import '../../features/bible/presentation/screens/bible_reader_screen.dart';
 import '../../features/bible/presentation/screens/bible_search_screen.dart';
 import '../../features/home_content/presentation/screens/banners_list_screen.dart';
@@ -1921,18 +1920,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/bible/bookmarks',
       builder: (context, state) => const BibleBookmarksScreen(),
-    ),
-    GoRoute(
-      path: '/bible/lexicon',
-      builder: (context, state) {
-        final initialQuery =
-            (state.uri.queryParameters['q'] ??
-                    state.uri.queryParameters['strong'])
-                ?.trim();
-        return OwnerOnlyRoute(
-          child: BibleLexiconEditorScreen(initialQuery: initialQuery),
-        );
-      },
     ),
 
     // =====================================================
