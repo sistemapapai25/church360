@@ -5,7 +5,6 @@ import '../../data/bible_repository.dart';
 import '../../domain/models/bible_book.dart';
 import '../../domain/models/bible_verse.dart';
 import '../../domain/models/bible_bookmark.dart';
-import '../../domain/models/bible_lexeme.dart';
 import '../../domain/models/bible_verse_token.dart';
 import '../../domain/models/bible_word_study.dart';
 
@@ -92,15 +91,3 @@ final isVerseBookmarkedProvider = FutureProvider.family<bool, ({String memberId,
   return repo.isBookmarked(params.memberId, params.verseId);
 });
 
-final bibleLexemeSearchQueryProvider = StateProvider<String>((ref) => '');
-
-final bibleLexemeSearchProvider = FutureProvider<List<BibleLexeme>>((ref) async {
-  final repo = ref.watch(bibleRepositoryProvider);
-  final query = ref.watch(bibleLexemeSearchQueryProvider);
-  return repo.searchLexemes(query, limit: 80);
-});
-
-final bibleLexemeSearchByQueryProvider = FutureProvider.family<List<BibleLexeme>, String>((ref, query) async {
-  final repo = ref.watch(bibleRepositoryProvider);
-  return repo.searchLexemes(query, limit: 25);
-});
