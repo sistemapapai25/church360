@@ -52,6 +52,9 @@ class BibleReaderScreen extends ConsumerWidget {
     final studiesAsync = ref.watch(
       bibleChapterWordStudiesProvider((bookId: bookId, chapter: chapter)),
     );
+    final note = ref
+        .watch(bibleChapterNoteProvider((bookId: bookId, chapter: chapter)))
+        .value;
     final fontSize = ref.watch(fontSizeProvider);
 
     return Scaffold(
@@ -202,11 +205,24 @@ class BibleReaderScreen extends ConsumerWidget {
                         chapter: chapter,
                       )),
                     );
+                    ref.invalidate(
+                      bibleChapterNoteProvider((
+                        bookId: bookId,
+                        chapter: chapter,
+                      )),
+                    );
                   },
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                    itemCount: verses.length,
+                    itemCount: verses.length + (note == null ? 0 : 1),
                     itemBuilder: (context, index) {
+                      if (index == verses.length) {
+                        return _ChapterNoteCard(
+                          titulo: note!.titulo,
+                          texto: note.texto,
+                          fontSize: fontSize,
+                        );
+                      }
                       final verse = verses[index];
                       final tokensByVerseId =
                           tokensAsync.value ??
@@ -247,6 +263,47 @@ class BibleReaderScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Fechamento do capítulo, no fim da lista de versículos.
+class _ChapterNoteCard extends StatelessWidget {
+  const _ChapterNoteCard({
+    required this.titulo,
+    required this.texto,
+    required this.fontSize,
+  });
+
+  final String titulo;
+  final String texto;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            titulo,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: scheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(texto, style: TextStyle(fontSize: fontSize, height: 1.5)),
+        ],
       ),
     );
   }

@@ -317,6 +317,18 @@ class BibleRepository {
     return byVerseId;
   }
 
+  /// Fechamento do capítulo (bible_chapter_note), se houver um publicado.
+  Future<({String titulo, String texto})?> getChapterNote(int bookId, int chapter) async {
+    final row = await _supabase
+        .from('bible_chapter_note')
+        .select('titulo, texto')
+        .eq('book_id', bookId)
+        .eq('chapter', chapter)
+        .maybeSingle();
+    if (row == null) return null;
+    return (titulo: row['titulo'] as String, texto: row['texto'] as String);
+  }
+
   Future<BibleLexeme?> getLexemeByStrongCode(String strongCode) async {
     String canonicalize(String value) {
       final trimmed = value.trim();
