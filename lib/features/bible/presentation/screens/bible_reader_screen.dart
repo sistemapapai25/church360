@@ -803,6 +803,13 @@ class _LexemeCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(_ubsCredit, style: meta.copyWith(fontSize: 11)),
                     ],
+                    if (lexeme.ptSource?.startsWith('IA') ?? false) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Português gerado com IA, em revisão.',
+                        style: meta.copyWith(fontSize: 11),
+                      ),
+                    ],
                     if (study != null) _WordStudyView(study: study!),
                   ],
                 ),
