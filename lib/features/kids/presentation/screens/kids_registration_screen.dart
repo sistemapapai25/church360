@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:intl/intl.dart';
 
 import 'package:uuid/uuid.dart';
@@ -15,6 +14,7 @@ import '../../../../core/widgets/pearl_fab.dart';
 import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/layout/readable_width.dart';
+import '../../../../core/widgets/church_qr_card.dart';
 
 /// Tela de Inscrição Kids (Área dos Pais)
 /// Aqui os pais podem:
@@ -166,29 +166,14 @@ class _CheckInTab extends ConsumerWidget {
             data: (token) {
               return Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: CommunityDesign.overlayDecoration(Theme.of(context).colorScheme),
-                    child: QrImageView(
-                      data: token.token,
-                      version: QrVersions.auto,
-                      size: 250.0,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Válido até ${DateFormat('HH:mm').format(token.expiresAt)}',
-                    style: CommunityDesign.contentStyle(context).copyWith(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      ref.invalidate(kidsCheckInTokenProvider(childId));
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Gerar Novo Código'),
+                  ChurchQrCard(
+                    data: token.token,
+                    title: 'Check-in Kids',
+                    size: 240,
+                    expiresAt: token.expiresAt,
+                    brightnessHint: true,
+                    onRefresh: () =>
+                        ref.invalidate(kidsCheckInTokenProvider(childId)),
                   ),
                 ],
               );

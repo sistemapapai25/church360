@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/layout/readable_width.dart';
 import '../../../../core/utils/share_link_utils.dart';
@@ -27,6 +26,8 @@ import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/widgets/church_qr_card.dart';
+import '../../../qr_scanner/domain/qr_payload.dart';
 import '../../../../core/widgets/share_link_dialog.dart';
 import '../../../../core/widgets/pearl_fab.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -87,6 +88,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       title: 'Compartilhar inscrição',
       url: url,
       shareText: 'Inscreva-se no evento "${event.name}":\n$url',
+      showQr: true,
+      qrTitle: 'Inscrição: ${event.name}',
       warning: _shareRestrictionWarning(event),
     );
   }
@@ -98,6 +101,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
       title: 'Compartilhar evento',
       url: url,
       shareText: 'Confira o evento "${event.name}":\n$url',
+      showQr: true,
+      qrTitle: event.name,
       warning: _shareRestrictionWarning(event),
     );
   }
@@ -1080,22 +1085,14 @@ class EventRegistrationBar extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              // Fundo branco sempre: leitor de QR precisa de contraste, também
-              // no tema escuro.
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: QrImageView(
-                  data:
-                      registration!.qrCode ??
-                      'EVENT_TICKET:${event.id}:${memberId ?? ''}',
-                  version: QrVersions.auto,
-                  size: 200,
-                  backgroundColor: Colors.white,
-                ),
+              ChurchQrCard(
+                data:
+                    registration!.qrCode ??
+                    'EVENT_TICKET:${event.id}:${memberId ?? ''}',
+                title: event.name,
+                subtitle: DateFormat('dd/MM/yyyy HH:mm').format(event.startDate),
+                brightnessHint: true,
+                actions: const {ChurchQrAction.share, ChurchQrAction.print},
               ),
               const SizedBox(height: 12),
               const Text('Apresente este código na entrada.'),
@@ -1522,7 +1519,7 @@ class _RegistrationsTab extends ConsumerWidget {
                                   // Estado de check-in tem ícone E texto: nunca
                                   // transmitido só por cor.
                                   Text(
-                                    'Check-in: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.checkedInAt!)}',
+                                    'Check-in: ${DateFormat('dd/MM/yyyy HH:mm').format(registration.checkedInAt!.toLocal())}',
                                     style: const TextStyle(
                                       color: _checkInColor,
                                     ),
@@ -1548,7 +1545,7 @@ class _RegistrationsTab extends ConsumerWidget {
                                         context,
                                         ref,
                                         event.id,
-                                        registration.memberId,
+                                        registration.id,
                                       ),
                                       tooltip: 'Fazer check-in',
                                     )
@@ -1644,7 +1641,7 @@ class _RegistrationsTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     String eventId,
-    String memberId,
+    String registrationId,
   ) async {
     // Re-checagem TOCTOU (padrão Tier 1, Pitfall 20): a responsabilidade
     // pode ter sido removida depois que a tela foi montada. O servidor nega
@@ -1672,13 +1669,15 @@ class _RegistrationsTab extends ConsumerWidget {
     }
 
     try {
-      await ref.read(eventsRepositoryProvider).checkIn(eventId, memberId);
+      final res = await ref
+          .read(eventsRepositoryProvider)
+          .confirmCheckIn(registrationId);
       ref.invalidate(eventRegistrationsProvider(eventId));
 
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Check-in realizado.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(checkInStatusMessage(res))),
+        );
       }
     } catch (e) {
       if (context.mounted) {

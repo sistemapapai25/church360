@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+
+import 'church_qr_card.dart';
 
 /// Dialog com o link pronto pra copiar, além da opção de compartilhar
 /// via apps (WhatsApp, etc). Existe porque clicar no link compartilhado
@@ -13,6 +14,9 @@ import 'package:share_plus/share_plus.dart';
 /// Usado pela Fase 3 (D-06) para dizer que um evento restrito só abre para
 /// quem pertence aos alvos escolhidos — texto informativo, nunca um controle
 /// de acesso (a proteção real é a RLS do servidor).
+///
+/// [showQr] mostra o [ChurchQrCard] do link; [qrTitle] é o nome que sai
+/// dentro do cartão (impresso/compartilhado), padrão [title].
 Future<void> showShareLinkDialog(
   BuildContext context, {
   required String title,
@@ -20,62 +24,64 @@ Future<void> showShareLinkDialog(
   required String shareText,
   String? warning,
   bool showQr = false,
+  String? qrTitle,
 }) {
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (warning != null && warning.trim().isNotEmpty) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.lock_outline,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    warning,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (warning != null && warning.trim().isNotEmpty) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.lock_outline,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      warning,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (showQr) ...[
-            Center(
-              child: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(8),
-                child: QrImageView(data: url, size: 200),
+                ],
               ),
-            ),
+              const SizedBox(height: 12),
+            ],
+            if (showQr) ...[
+              Center(
+                child: ChurchQrCard(
+                  data: url,
+                  title: qrTitle ?? title,
+                  size: 200,
+                  shareText: shareText,
+                  actions: const {ChurchQrAction.share, ChurchQrAction.print},
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            const Text('Copie o link ou compartilhe diretamente:'),
             const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SelectableText(url, style: const TextStyle(fontSize: 13)),
+            ),
           ],
-          const Text('Copie o link ou compartilhe diretamente:'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SelectableText(
-              url,
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-        ],
+        ),
       ),
       actions: [
         TextButton.icon(
@@ -83,9 +89,9 @@ Future<void> showShareLinkDialog(
             await Clipboard.setData(ClipboardData(text: url));
             if (context.mounted) {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Link copiado!')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('Link copiado!')));
             }
           },
           icon: const Icon(Icons.copy),

@@ -1086,10 +1086,7 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/qr-scanner',
-      builder: (context, state) => const PermissionOnlyRoute(
-        permission: 'events.checkin',
-        child: QRScannerScreen(),
-      ),
+      builder: (context, state) => const QrScannerRoute(),
     ),
     GoRoute(
       path: '/visitors/:id/visit/new',
