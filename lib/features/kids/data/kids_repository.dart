@@ -362,6 +362,16 @@ class KidsRepository {
     return KidsCheckInToken.fromJson(Map<String, dynamic>.from(response as Map));
   }
 
+  /// Código de retirada (KOUT) do check-in aberto da criança; null se ela
+  /// não está na sala. Só quem pode retirá-la recebe (RPC).
+  Future<Map<String, dynamic>?> getCheckoutCode(String childId) async {
+    final response = await _supabase.rpc(
+      'kids_my_checkout_code',
+      params: {'p_child': childId},
+    );
+    return response == null ? null : Map<String, dynamic>.from(response as Map);
+  }
+
   // ==========================================
   // BALCÃO (check-in/check-out pela equipe do Infantil)
   // ==========================================

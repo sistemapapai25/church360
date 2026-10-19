@@ -53,6 +53,12 @@ final kidsCheckInTokenProvider =
   return ref.watch(kidsRepositoryProvider).generateCheckInToken(childId);
 });
 
+/// Código de retirada (KOUT) do check-in aberto; null fora da sala.
+final kidsCheckoutCodeProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>?, String>((ref, childId) {
+  return ref.watch(kidsRepositoryProvider).getCheckoutCode(childId);
+});
+
 /// A pessoa logada é da equipe do Infantil (abre o Balcão)?
 final kidsIsTeamProvider = FutureProvider.autoDispose<bool>((ref) {
   return ref.watch(kidsRepositoryProvider).isTeam();

@@ -15,6 +15,7 @@ import '../../../permissions/providers/permissions_providers.dart';
 import '../../../permissions/presentation/widgets/permission_gate.dart';
 import '../../../../core/layout/readable_width.dart';
 import '../../../../core/widgets/church_qr_card.dart';
+import '../../domain/kids_badges_pdf.dart' show kidsPickupCode;
 
 /// Tela de Inscrição Kids (Área dos Pais)
 /// Aqui os pais podem:
@@ -149,6 +150,42 @@ class _CheckInTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Criança na sala: mostra o código de retirada (KOUT) no lugar do KIN.
+    final koutAsync = ref.watch(kidsCheckoutCodeProvider(childId));
+    if (koutAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final kout = koutAsync.valueOrNull;
+    if (kout != null) {
+      final room = kout['room_name'] as String?;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Apresente este QR Code na retirada',
+              style: CommunityDesign.titleStyle(
+                context,
+              ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            ChurchQrCard(
+              data: 'C360:KOUT:${kout['token']}',
+              title: 'Retirada Kids',
+              subtitle: [
+                'Etiqueta ${kidsPickupCode(kout['attendance_id'] as String)}',
+                if (room != null) 'Sala $room',
+              ].join(' · '),
+              size: 240,
+              brightnessHint: true,
+              onRefresh: () =>
+                  ref.invalidate(kidsCheckoutCodeProvider(childId)),
+            ),
+          ],
+        ),
+      );
+    }
+
     final tokenAsync = ref.watch(kidsCheckInTokenProvider(childId));
 
     return Center(
@@ -167,13 +204,15 @@ class _CheckInTab extends ConsumerWidget {
               return Column(
                 children: [
                   ChurchQrCard(
-                    data: token.token,
+                    data: 'C360:KIN:${token.token}',
                     title: 'Check-in Kids',
                     size: 240,
                     expiresAt: token.expiresAt,
                     brightnessHint: true,
-                    onRefresh: () =>
-                        ref.invalidate(kidsCheckInTokenProvider(childId)),
+                    onRefresh: () {
+                      ref.invalidate(kidsCheckoutCodeProvider(childId));
+                      ref.invalidate(kidsCheckInTokenProvider(childId));
+                    },
                   ),
                 ],
               );
