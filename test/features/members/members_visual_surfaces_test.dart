@@ -64,7 +64,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Souza'), findsOneWidget);
-    expect(find.byType(GlassCard), findsAtLeastNWidgets(5));
+    // 4 seções: o QR com o ID puro do membro saiu do perfil (QR E1, 19/10).
+    expect(find.byType(GlassCard), findsAtLeastNWidgets(4));
     expect(find.byIcon(AppIcons.back), findsOneWidget);
     expect(find.byIcon(AppIcons.expand), findsAtLeastNWidgets(1));
   });

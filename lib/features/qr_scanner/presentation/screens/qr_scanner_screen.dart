@@ -1,16 +1,39 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../../members/presentation/providers/members_provider.dart';
-import '../../../members/domain/models/member.dart';
-import '../../../events/domain/models/event.dart';
+import '../../../../core/constants/supabase_constants.dart';
+import '../../../../core/errors/app_error_handler.dart';
+import '../../../../core/navigation/route_guard.dart';
 import '../../../events/presentation/providers/events_provider.dart';
+import '../../../kids/presentation/providers/kids_providers.dart';
+import '../../domain/qr_payload.dart';
 
-/// Tela de leitura de QR Code para controle de presença
+/// Quem abre o leitor: events.checkin OU equipe do Kids (kids_is_team, que
+/// não é permissão RBAC). A tela não é a fronteira: cada RPC valida de novo.
+class QrScannerRoute extends ConsumerWidget {
+  const QrScannerRoute({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kidsTeam = ref.watch(kidsIsTeamProvider);
+    if (kidsTeam.isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (kidsTeam.valueOrNull == true) return const QRScannerScreen();
+    return const PermissionOnlyRoute(
+      permission: 'events.checkin',
+      child: QRScannerScreen(),
+    );
+  }
+}
+
+/// Leitor único de QR (.planning/ROADMAP-2026-10-19-QR-CODES.md §2.4).
+/// A tela só classifica e mostra: quem decide tenant, permissão e validade é
+/// a RPC de cada tipo.
 class QRScannerScreen extends ConsumerStatefulWidget {
   const QRScannerScreen({super.key});
 
@@ -18,760 +41,379 @@ class QRScannerScreen extends ConsumerStatefulWidget {
   ConsumerState<QRScannerScreen> createState() => _QRScannerScreenState();
 }
 
+enum _Tone { ok, warn, error }
+
+class _Result {
+  final _Tone tone;
+  final String title;
+  final String message;
+  final String? person;
+  final String? context;
+  final String? photoUrl;
+
+  /// Ingresso legado: a entrada só é registrada depois da conferência.
+  final String? confirmRegistrationId;
+
+  /// Ação extra (ex.: abrir o Balcão Kids).
+  final String? actionLabel;
+  final String? actionRoute;
+
+  const _Result(
+    this.tone,
+    this.title,
+    this.message, {
+    this.person,
+    this.context,
+    this.photoUrl,
+    this.confirmRegistrationId,
+    this.actionLabel,
+    this.actionRoute,
+  });
+}
+
 class _QRScannerScreenState extends ConsumerState<QRScannerScreen> {
-  MobileScannerController cameraController = MobileScannerController();
-  bool _isProcessing = false;
-  String? _lastScannedCode;
+  final _camera = MobileScannerController();
+  bool _busy = false;
+  _Result? _result;
+
+  static final _appHosts = {
+    Uri.parse(SupabaseConstants.appWebBaseUrl).host,
+    if (kIsWeb) Uri.base.host,
+  };
 
   @override
   void dispose() {
-    cameraController.dispose();
+    _camera.dispose();
     super.dispose();
+  }
+
+  Future<void> _onDetect(BarcodeCapture capture) async {
+    if (_busy || _result != null) return;
+    final code = capture.barcodes
+        .map((b) => b.rawValue)
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .firstOrNull;
+    if (code == null) return;
+
+    setState(() => _busy = true);
+    await _camera.stop();
+    final payload = parseQrPayload(code, appHosts: _appHosts);
+    _Result result;
+    try {
+      switch (payload.kind) {
+        case QrPayloadKind.eventTicket:
+          result = _fromCheckIn(
+            await ref.read(eventsRepositoryProvider).scanCheckIn(payload.raw),
+          );
+        case QrPayloadKind.kids:
+          result = const _Result(
+            _Tone.warn,
+            'QR do Kids',
+            'A entrada e a saída das crianças são registradas no Balcão Kids.',
+            actionLabel: 'Abrir Balcão Kids',
+            actionRoute: '/kids',
+          );
+        case QrPayloadKind.internalLink:
+          if (!mounted) return;
+          setState(() => _busy = false);
+          await context.push(payload.path!);
+          if (mounted) await _next();
+          return;
+        case QrPayloadKind.unknown:
+          result = const _Result(
+            _Tone.error,
+            'QR não reconhecido',
+            'Este código não é do Church360.',
+          );
+      }
+    } catch (e) {
+      result = _Result(
+        _Tone.error,
+        'Não foi possível ler agora',
+        AppErrorHandler.userMessage(e, feature: 'events'),
+      );
+    }
+    _show(result);
+  }
+
+  _Result _fromCheckIn(Map<String, dynamic> res) {
+    final status = res['status'] as String?;
+    final tone = switch (status) {
+      'ok' => _Tone.ok,
+      'already' || 'legacy' => _Tone.warn,
+      _ => _Tone.error,
+    };
+    final title = switch (status) {
+      'ok' => 'Entrada registrada',
+      'already' => 'Já registrado',
+      'legacy' => 'Confira a pessoa',
+      'cancelled' => 'Inscrição cancelada',
+      'forbidden' => 'Sem permissão',
+      _ => 'QR inválido',
+    };
+    return _Result(
+      tone,
+      title,
+      checkInStatusMessage(res),
+      person: res['person_name'] as String?,
+      context: res['event_name'] as String?,
+      photoUrl: res['photo_url'] as String?,
+      confirmRegistrationId: status == 'legacy'
+          ? res['registration_id'] as String?
+          : null,
+    );
+  }
+
+  void _show(_Result result) {
+    if (!mounted) return;
+    if (result.tone == _Tone.ok) {
+      HapticFeedback.mediumImpact();
+    } else {
+      HapticFeedback.heavyImpact();
+    }
+    setState(() {
+      _busy = false;
+      _result = result;
+    });
+  }
+
+  Future<void> _confirm(String registrationId) async {
+    setState(() => _busy = true);
+    try {
+      _show(
+        _fromCheckIn(
+          await ref
+              .read(eventsRepositoryProvider)
+              .confirmCheckIn(registrationId),
+        ),
+      );
+    } catch (e) {
+      _show(
+        _Result(
+          _Tone.error,
+          'Não foi possível registrar',
+          AppErrorHandler.userMessage(e, feature: 'events'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _next() async {
+    setState(() {
+      _result = null;
+      _busy = false;
+    });
+    await _camera.start();
   }
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Leitor de QR Code'),
         actions: [
           IconButton(
             icon: const Icon(Icons.flash_on),
-            onPressed: () => cameraController.toggleTorch(),
-            tooltip: 'Flash',
+            onPressed: () => _camera.toggleTorch(),
+            tooltip: 'Lanterna',
           ),
           IconButton(
             icon: const Icon(Icons.cameraswitch),
-            onPressed: () => cameraController.switchCamera(),
-            tooltip: 'Trocar Câmera',
+            onPressed: () => _camera.switchCamera(),
+            tooltip: 'Trocar câmera',
           ),
         ],
       ),
       body: Column(
         children: [
-          // Área de instrução
-          Container(
-            padding: const EdgeInsets.all(20),
-            color: Colors.blue.withValues(alpha: 0.1),
-            child: Row(
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Icon(Icons.qr_code_scanner, size: 40, color: Colors.blue[700]),
-                const SizedBox(width: 16),
+                MobileScanner(controller: _camera, onDetect: _onDetect),
+                CustomPaint(painter: ScannerOverlayPainter(cs.primary)),
+                if (_busy)
+                  const ColoredBox(
+                    color: Colors.black45,
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: _result == null ? _idle(cs) : _resultCard(_result!, cs),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _idle(ColorScheme cs) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Aponte para o QR do ingresso.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: cs.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        // Fallback sem segundo segredo: achar a pessoa pelo nome na lista
+        // de inscritos do evento (§2.4).
+        TextButton.icon(
+          onPressed: () => context.push('/events'),
+          icon: const Icon(Icons.person_search),
+          label: const Text('Buscar participante'),
+        ),
+      ],
+    );
+  }
+
+  Widget _resultCard(_Result r, ColorScheme cs) {
+    final (color, icon) = switch (r.tone) {
+      _Tone.ok => (const Color(0xFF2E7D32), Icons.check_circle),
+      _Tone.warn => (const Color(0xFFB26A00), Icons.warning_amber_rounded),
+      _Tone.error => (cs.error, Icons.cancel),
+    };
+    final photo = r.photoUrl?.trim() ?? '';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color, width: 2),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 36),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  r.title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (r.person != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: photo.isEmpty ? null : NetworkImage(photo),
+                  child: photo.isEmpty ? const Icon(Icons.person) : null,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Escaneie o QR Code do Membro',
-                        style: TextStyle(
+                        r.person!,
+                        style: const TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[900],
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Posicione o QR Code dentro da área marcada',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Scanner
-          Expanded(
-            child: Stack(
-              children: [
-                MobileScanner(
-                  controller: cameraController,
-                  onDetect: (capture) {
-                    _onQRCodeDetected(capture);
-                  },
-                ),
-                // Overlay com área de scan
-                CustomPaint(
-                  painter: ScannerOverlayPainter(),
-                  child: Container(),
-                ),
-                // Indicador de processamento
-                if (_isProcessing)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    child: const Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // Área de informações
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.info_outline, size: 20, color: Colors.grey[600]),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Aguardando leitura...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _onQRCodeDetected(BarcodeCapture capture) async {
-    if (_isProcessing) return;
-
-    final List<Barcode> barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
-
-    final String? code = barcodes.first.rawValue;
-    if (code == null || code.isEmpty) return;
-
-    // Evitar processar o mesmo código múltiplas vezes
-    if (code == _lastScannedCode) return;
-
-    setState(() {
-      _isProcessing = true;
-      _lastScannedCode = code;
-    });
-
-    // Pausar scanner
-    await cameraController.stop();
-
-    // Detectar tipo de QR Code
-    if (code.startsWith('EVENT_TICKET:')) {
-      // QR Code de ingresso de evento
-      _processEventTicket(code);
-    } else {
-      // QR Code de membro (ID do membro)
-      _processMemberQRCode(code);
-    }
-  }
-
-  void _processMemberQRCode(String memberId) {
-    final memberAsync = ref.read(memberByIdProvider(memberId));
-
-    memberAsync.when(
-      data: (member) {
-        if (member != null) {
-          _showMemberDialog(member);
-        } else {
-          _showErrorDialog('Membro não encontrado', 'O QR Code escaneado não corresponde a nenhum membro cadastrado.');
-        }
-      },
-      loading: () {
-        // Já está mostrando loading
-      },
-      error: (error, stack) {
-        _showErrorDialog('Erro ao buscar membro', error.toString());
-      },
-    );
-  }
-
-  void _processEventTicket(String qrCode) async {
-    try {
-      // Formato: EVENT_TICKET:eventId:memberId:ticketId
-      final parts = qrCode.split(':');
-      if (parts.length != 4) {
-        _showErrorDialog('QR Code Inválido', 'O formato do QR Code do ingresso está incorreto.');
-        return;
-      }
-
-      final eventId = parts[1];
-      final memberId = parts[2];
-      final ticketId = parts[3];
-
-      // Buscar evento
-      final eventAsync = ref.read(eventByIdProvider(eventId));
-      final memberAsync = ref.read(memberByIdProvider(memberId));
-
-      await eventAsync.when(
-        data: (event) async {
-          if (event == null) {
-            _showErrorDialog('Evento não encontrado', 'O evento deste ingresso não foi encontrado.');
-            return;
-          }
-
-          await memberAsync.when(
-            data: (member) async {
-              if (member == null) {
-                _showErrorDialog('Membro não encontrado', 'O membro deste ingresso não foi encontrado.');
-                return;
-              }
-
-              // Fazer check-in
-              await _doEventCheckIn(event, member, ticketId);
-            },
-            loading: () {},
-            error: (error, stack) {
-              _showErrorDialog('Erro', 'Erro ao buscar membro: $error');
-            },
-          );
-        },
-        loading: () {},
-        error: (error, stack) {
-          _showErrorDialog('Erro', 'Erro ao buscar evento: $error');
-        },
-      );
-    } catch (e) {
-      _showErrorDialog('Erro', 'Erro ao processar ingresso: $e');
-    }
-  }
-
-  Future<void> _doEventCheckIn(Event event, Member member, String ticketId) async {
-    try {
-      // Fazer check-in no evento
-      await ref.read(eventsRepositoryProvider).checkIn(event.id, member.id);
-
-      // Invalidar providers
-      ref.invalidate(eventRegistrationsProvider(event.id));
-      ref.invalidate(eventByIdProvider(event.id));
-
-      // Mostrar sucesso
-      _showEventCheckInSuccessDialog(event, member);
-    } catch (e) {
-      _showErrorDialog('Erro ao fazer check-in', e.toString());
-    }
-  }
-
-  void _showMemberDialog(Member member) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        contentPadding: EdgeInsets.zero,
-        content: SizedBox(
-          width: 350,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header com foto e nome
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 64,
-                      color: Colors.green[600],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'QR Code Válido!',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[800],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Informações do membro
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    // Foto
-                    Builder(builder: (context) {
-                      final rawUrl = member.photoUrl;
-                      String? resolvedUrl;
-                      if (rawUrl != null && rawUrl.isNotEmpty) {
-                        final parsed = Uri.tryParse(rawUrl);
-                        if (parsed != null && parsed.hasScheme) {
-                          resolvedUrl = rawUrl;
-                        } else {
-                          resolvedUrl = Supabase.instance.client.storage
-                              .from('member-photos')
-                              .getPublicUrl(rawUrl);
-                        }
-                      }
-
-                      return CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                        child: resolvedUrl != null
-                            ? ClipOval(
-                                child: Image.network(
-                                  resolvedUrl,
-                                  width: 100,
-                                  height: 100,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Text(
-                                      member.initials,
-                                      style: const TextStyle(
-                                        fontSize: 36,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              )
-                            : Text(
-                                member.initials,
-                                style: const TextStyle(
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                      );
-                    }),
-                    const SizedBox(height: 16),
-                    // Nome
-                    Text(
-                      member.displayName,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (member.nickname != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        '"${member.nickname}"',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    // Informações
-                    _buildInfoRow(Icons.phone, member.phone ?? 'Sem telefone'),
-                    _buildInfoRow(
-                      Icons.person,
-                      member.gender == 'male'
-                          ? 'Masculino'
-                          : member.gender == 'female'
-                              ? 'Feminino'
-                              : 'Não informado',
-                    ),
-                    _buildInfoRow(
-                      Icons.badge,
-                      _getMemberTypeLabel(member.memberType),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _resetScanner();
-            },
-            child: const Text('Fechar'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              context.push('/members/${member.id}/profile');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Ver Perfil'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showErrorDialog(String title, String message) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red[600]),
-            const SizedBox(width: 12),
-            Text(title),
-          ],
-        ),
-        content: Text(message),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _resetScanner();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEventCheckInSuccessDialog(Event event, Member member) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        contentPadding: EdgeInsets.zero,
-        content: SizedBox(
-          width: 350,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header com sucesso
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.check_circle,
-                      size: 64,
-                      color: Colors.green[600],
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'CHECK-IN REALIZADO!',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[800],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Informações do evento e membro
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    // Evento
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.event, color: Colors.blue[700]),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  event.name,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            DateFormat('dd/MM/yyyy - HH:mm').format(event.startDate),
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Membro
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Builder(builder: (context) {
-                            final rawUrl = member.photoUrl;
-                            String? resolvedUrl;
-                            if (rawUrl != null && rawUrl.isNotEmpty) {
-                              final parsed = Uri.tryParse(rawUrl);
-                              if (parsed != null && parsed.hasScheme) {
-                                resolvedUrl = rawUrl;
-                              } else {
-                                resolvedUrl = Supabase.instance.client.storage
-                                    .from('member-photos')
-                                    .getPublicUrl(rawUrl);
-                              }
-                            }
-
-                            return CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                              child: resolvedUrl != null
-                                  ? ClipOval(
-                                      child: Image.network(
-                                        resolvedUrl,
-                                        width: 60,
-                                        height: 60,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (context, error, stackTrace) {
-                                          return Text(
-                                            member.initials,
-                                            style: const TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.blue,
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    )
-                                  : Text(
-                                      member.initials,
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.blue,
-                                      ),
-                                    ),
-                            );
-                          }),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  member.displayName,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (member.nickname != null)
-                                  Text(
-                                    '"${member.nickname}"',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey[600],
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Horário do check-in
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 8),
+                      if (r.context != null)
                         Text(
-                          'Check-in: ${DateFormat('HH:mm:ss').format(DateTime.now())}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
+                          r.context!,
+                          style: TextStyle(color: cs.onSurfaceVariant),
                         ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(r.message, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              if (r.confirmRegistrationId != null)
+                FilledButton.icon(
+                  onPressed: _busy
+                      ? null
+                      : () => _confirm(r.confirmRegistrationId!),
+                  icon: const Icon(Icons.how_to_reg),
+                  label: const Text('Confirmar entrada'),
+                ),
+              if (r.actionRoute != null)
+                FilledButton.tonal(
+                  onPressed: () => context.go(r.actionRoute!),
+                  child: Text(r.actionLabel ?? 'Abrir'),
+                ),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _next,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Ler próximo'),
               ),
             ],
           ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _resetScanner();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('OK'),
-          ),
         ],
       ),
     );
-  }
-
-  void _resetScanner() {
-    setState(() {
-      _isProcessing = false;
-      _lastScannedCode = null;
-    });
-    cameraController.start();
-  }
-
-  Widget _buildInfoRow(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.grey[600]),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getMemberTypeLabel(String? type) {
-    switch (type) {
-      case 'membro':
-        return 'Membro';
-      case 'visitante':
-        return 'Visitante';
-      case 'lider':
-        return 'Líder';
-      case 'voluntario':
-        return 'Voluntário';
-      case 'titular':
-        return 'Liderança';
-      case 'congregado':
-        return 'Congregado';
-      case 'cooperador':
-        return 'Cooperador';
-      case 'crianca':
-        return 'Criança';
-      default:
-        final v = type?.trim() ?? '';
-        if (v.isEmpty) return 'Não informado';
-        var s = v.replaceAll(RegExp(r'[_-]+'), ' ').trim();
-        if (s.isEmpty) return v;
-        final words = s.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-        final normalized = words
-            .map((w) => w.length == 1
-                ? w.toUpperCase()
-                : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
-            .join(' ');
-        return normalized.isNotEmpty ? normalized : v;
-    }
   }
 }
 
-/// Painter para desenhar o overlay do scanner
+/// Escurece fora da área de leitura e marca os cantos.
 class ScannerOverlayPainter extends CustomPainter {
+  final Color color;
+
+  ScannerOverlayPainter(this.color);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-
-    final scanAreaSize = size.width * 0.7;
-    final left = (size.width - scanAreaSize) / 2;
-    final top = (size.height - scanAreaSize) / 2;
-
-    // Desenhar overlay escuro
+    final side = size.shortestSide * 0.7;
+    final rect = Rect.fromCenter(
+      center: size.center(Offset.zero),
+      width: side,
+      height: side,
+    );
     canvas.drawPath(
       Path()
-        ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-        ..addRect(Rect.fromLTWH(left, top, scanAreaSize, scanAreaSize))
+        ..addRect(Offset.zero & size)
+        ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(16)))
         ..fillType = PathFillType.evenOdd,
-      paint,
+      Paint()..color = Colors.black.withValues(alpha: 0.5),
     );
-
-    // Desenhar bordas da área de scan
-    final borderPaint = Paint()
-      ..color = Colors.green
+    final pen = Paint()
+      ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
-
-    final cornerLength = 30.0;
-
-    // Canto superior esquerdo
-    canvas.drawLine(Offset(left, top), Offset(left + cornerLength, top), borderPaint);
-    canvas.drawLine(Offset(left, top), Offset(left, top + cornerLength), borderPaint);
-
-    // Canto superior direito
-    canvas.drawLine(Offset(left + scanAreaSize, top), Offset(left + scanAreaSize - cornerLength, top), borderPaint);
-    canvas.drawLine(Offset(left + scanAreaSize, top), Offset(left + scanAreaSize, top + cornerLength), borderPaint);
-
-    // Canto inferior esquerdo
-    canvas.drawLine(Offset(left, top + scanAreaSize), Offset(left + cornerLength, top + scanAreaSize), borderPaint);
-    canvas.drawLine(Offset(left, top + scanAreaSize), Offset(left, top + scanAreaSize - cornerLength), borderPaint);
-
-    // Canto inferior direito
-    canvas.drawLine(Offset(left + scanAreaSize, top + scanAreaSize), Offset(left + scanAreaSize - cornerLength, top + scanAreaSize), borderPaint);
-    canvas.drawLine(Offset(left + scanAreaSize, top + scanAreaSize), Offset(left + scanAreaSize, top + scanAreaSize - cornerLength), borderPaint);
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    const c = 32.0;
+    for (final (corner, dx, dy) in [
+      (rect.topLeft, 1.0, 1.0),
+      (rect.topRight, -1.0, 1.0),
+      (rect.bottomLeft, 1.0, -1.0),
+      (rect.bottomRight, -1.0, -1.0),
+    ]) {
+      canvas.drawLine(corner, corner.translate(c * dx, 0), pen);
+      canvas.drawLine(corner, corner.translate(0, c * dy), pen);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant ScannerOverlayPainter old) => old.color != color;
 }

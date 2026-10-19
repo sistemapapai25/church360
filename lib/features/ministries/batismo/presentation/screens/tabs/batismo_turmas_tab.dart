@@ -136,6 +136,8 @@ class _BatismoTurmasTabState extends ConsumerState<BatismoTurmasTab> {
       title: 'Link de inscrição',
       url: url,
       shareText: 'Inscreva-se no curso de batismo: $url',
+      showQr: true,
+      qrTitle: 'Inscrição no curso de Batismo',
       warning: abertas == 0
           ? 'Nenhuma turma está aceitando inscrição agora. Quem abrir o link '
                 'vai ver "Inscrições fechadas" — abra uma turma aqui antes '

@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/layout/readable_width.dart';
 import '../../../../core/constants/supabase_constants.dart';
@@ -598,14 +597,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             ),
             const SizedBox(height: _sectionGap),
           ],
-          // QR Code do Membro
-          _buildSection(
-            context,
-            icon: Icons.qr_code,
-            title: 'QR Code do Membro',
-            sectionKey: 'qrcode',
-            child: _buildQRCode(context, member),
-          ),
           const SizedBox(height: 24),
         ],
       ),
@@ -700,14 +691,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             child: _buildLeadershipInfo(context, member, ref),
           ),
         ],
-        const SizedBox(height: _sectionGap),
-        _buildSection(
-          context,
-          icon: Icons.qr_code,
-          title: 'QR Code do Membro',
-          sectionKey: 'qrcode',
-          child: _buildQRCode(context, member),
-        ),
         const SizedBox(height: _sectionGap),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
@@ -3041,50 +3024,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
         style: CommunityDesign.contentStyle(
           context,
         ).copyWith(color: Theme.of(context).colorScheme.error),
-      ),
-    );
-  }
-
-  Widget _buildQRCode(BuildContext context, Member member) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(
-            context,
-          ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(_cardRadius),
-          border: Border.all(
-            color: Theme.of(
-              context,
-            ).colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Column(
-          children: [
-            QrImageView(
-              data: member.id,
-              version: QrVersions.auto,
-              size: 180.0,
-              backgroundColor: Colors.transparent,
-              eyeStyle: QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              dataModuleStyle: QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'ID: ${member.id}',
-              style: CommunityDesign.metaStyle(
-                context,
-              ).copyWith(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ],
-        ),
       ),
     );
   }

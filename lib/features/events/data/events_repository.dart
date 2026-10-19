@@ -1349,18 +1349,25 @@ class EventsRepository {
     }
   }
 
-  /// Marcar check-in
-  Future<void> checkIn(String eventId, String memberId) async {
-    try {
-      await _supabase
-          .from('event_registration')
-          .update({'checked_in_at': DateTime.now().toIso8601String()})
-          .eq('event_id', eventId)
-          .eq('user_id', memberId)
-          .eq('tenant_id', SupabaseConstants.currentTenantId);
-    } catch (e) {
-      rethrow;
-    }
+  /// Check-in só pela RPC (atômico; QR E1). Devolve o cartão do servidor:
+  /// status ok | already | cancelled | invalid | forbidden + nome, evento,
+  /// checked_in_at e checked_in_by.
+  Future<Map<String, dynamic>> confirmCheckIn(String registrationId) async {
+    final res = await _supabase.rpc(
+      'event_checkin_confirm',
+      params: {'p_registration_id': registrationId},
+    );
+    return Map<String, dynamic>.from(res as Map);
+  }
+
+  /// Lê o conteúdo de um QR de ingresso. Nunca registra a entrada do
+  /// formato legado: devolve 'legacy' e a tela pede conferência.
+  Future<Map<String, dynamic>> scanCheckIn(String payload) async {
+    final res = await _supabase.rpc(
+      'event_checkin_scan',
+      params: {'p_payload': payload},
+    );
+    return Map<String, dynamic>.from(res as Map);
   }
 
   /// Cancelar check-in

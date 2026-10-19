@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/layout/readable_width.dart';
@@ -10,6 +9,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/design/app_icons.dart';
 import '../../../../core/errors/app_error_handler.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/church_qr_card.dart';
 import '../../domain/models/event.dart';
 import '../providers/events_provider.dart';
 import '../utils/event_full_error.dart';
@@ -986,23 +986,14 @@ class _EventRegistrationScreenState
 
                   const SizedBox(height: 32),
 
-                  // QR Code
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.grey[300] ?? Colors.grey,
-                        width: 2,
-                      ),
-                    ),
-                    child: QrImageView(
-                      data: ticket.qrCode,
-                      version: QrVersions.auto,
-                      size: 250.0,
-                      backgroundColor: Colors.white,
-                    ),
+                  ChurchQrCard(
+                    data: ticket.qrCode,
+                    title: event.name,
+                    subtitle:
+                        DateFormat('dd/MM/yyyy HH:mm').format(event.startDate),
+                    size: 240,
+                    brightnessHint: true,
+                    actions: const {ChurchQrAction.share, ChurchQrAction.print},
                   ),
 
                   const SizedBox(height: 24),

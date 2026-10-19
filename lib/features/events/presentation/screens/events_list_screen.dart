@@ -79,6 +79,8 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
       title: 'Compartilhar inscrição',
       url: url,
       shareText: 'Inscreva-se no evento "${event.name}":\n$url',
+      showQr: true,
+      qrTitle: 'Inscrição: ${event.name}',
     );
   }
 
@@ -89,6 +91,8 @@ class _EventsListScreenState extends ConsumerState<EventsListScreen> {
       title: 'Compartilhar evento',
       url: url,
       shareText: 'Confira o evento "${event.name}":\n$url',
+      showQr: true,
+      qrTitle: event.name,
     );
   }
 

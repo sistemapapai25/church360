@@ -119,6 +119,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Seu ingresso'), findsOneWidget);
     expect(find.text('Apresente este código na entrada.'), findsOneWidget);
+    // O cartão do QR (E1) deixou o sheet mais alto: rola até o Fechar.
+    await tester.ensureVisible(find.text('Fechar'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Fechar'));
     await tester.pumpAndSettle();
     expect(find.text('Seu ingresso'), findsNothing);
