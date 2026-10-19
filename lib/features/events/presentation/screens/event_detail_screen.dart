@@ -1086,9 +1086,7 @@ class EventRegistrationBar extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               ChurchQrCard(
-                data:
-                    registration!.qrCode ??
-                    'EVENT_TICKET:${event.id}:${memberId ?? ''}',
+                data: registration!.ticketPayload,
                 title: event.name,
                 subtitle: DateFormat('dd/MM/yyyy HH:mm').format(event.startDate),
                 brightnessHint: true,
@@ -1482,9 +1480,22 @@ class _RegistrationsTab extends ConsumerWidget {
               },
               child: ListView.builder(
                 padding: const EdgeInsets.all(20),
-                itemCount: registrations.length,
+                itemCount: registrations.length + 1,
                 itemBuilder: (context, index) {
-                  final registration = registrations[index];
+                  // E2: contador da porta; atualiza ao puxar a lista.
+                  if (index == 0) {
+                    final presentes = registrations
+                        .where((r) => r.isCheckedIn)
+                        .length;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        '$presentes de ${registrations.length} presentes',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    );
+                  }
+                  final registration = registrations[index - 1];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: GlassCard(

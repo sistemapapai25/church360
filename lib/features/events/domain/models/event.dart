@@ -204,7 +204,8 @@ class EventRegistration {
   final String? memberName; // Computed from join
   final DateTime registeredAt;
   final DateTime? checkedInAt;
-  final String? qrCode;
+  final String? qrCode; // legado EVENT_TICKET (congelado desde a E2)
+  final String? checkinToken; // E2: segredo do ingresso
   final String? ticketId; // ID do ingresso gerado
 
   EventRegistration({
@@ -215,10 +216,15 @@ class EventRegistration {
     required this.registeredAt,
     this.checkedInAt,
     this.qrCode,
+    this.checkinToken,
     this.ticketId,
   });
 
   bool get isCheckedIn => checkedInAt != null;
+
+  /// Conteúdo do QR do ingresso: o token (E2) ou, sem ele, o legado.
+  String get ticketPayload =>
+      checkinToken != null ? 'C360:TKT:$checkinToken' : (qrCode ?? '');
 
   /// Criar a partir de JSON
   factory EventRegistration.fromJson(Map<String, dynamic> json) {
@@ -232,6 +238,7 @@ class EventRegistration {
           ? DateTime.parse(json['checked_in_at'] as String)
           : null,
       qrCode: json['qr_code'] as String?,
+      checkinToken: json['checkin_token'] as String?,
       ticketId: json['ticket_id'] as String?,
     );
   }

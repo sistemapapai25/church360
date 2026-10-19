@@ -329,9 +329,7 @@ class _EventRegistrationScreenState
                       id: existing.id,
                       eventId: event.id,
                       memberId: member.id,
-                      qrCode:
-                          existing.qrCode ??
-                          'EVENT_TICKET:${event.id}:${member.id}',
+                      qrCode: existing.ticketPayload,
                       status: 'paid',
                       paidAmount: event.isFree ? 0 : event.price,
                       createdAt: existing.registeredAt,
@@ -487,7 +485,7 @@ class _EventRegistrationScreenState
 
     setState(() => _isGuestRegistering = true);
     try {
-      await ref
+      final token = await ref
           .read(eventsRepositoryProvider)
           .registerGuest(
             eventId: event.id,
@@ -508,8 +506,31 @@ class _EventRegistrationScreenState
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Tudo certo!'),
-          content: const Text(
-            'Sua inscrição foi registrada. Para receber novidades e acessar outros recursos, você pode criar sua conta no app.',
+          // E2: o convidado não tem conta, então o ingresso só aparece aqui.
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Sua inscrição foi registrada. Guarde este ingresso (Compartilhar salva a imagem) e apresente na entrada.',
+                ),
+                const SizedBox(height: 16),
+                ChurchQrCard(
+                  data: 'C360:TKT:$token',
+                  title: event.name,
+                  subtitle: DateFormat(
+                    'dd/MM/yyyy HH:mm',
+                  ).format(event.startDate),
+                  size: 200,
+                  brightnessHint: true,
+                  actions: const {ChurchQrAction.share, ChurchQrAction.print},
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Para receber novidades e acessar outros recursos, você pode criar sua conta no app.',
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -833,9 +854,8 @@ class _EventRegistrationScreenState
     }
 
     try {
-      // Registrar inscrição — qr_code é persistido pelo repositório
-      // (determinístico por event_id+user_id), não gerado aqui, pra que o
-      // mesmo código sobreviva a sair/voltar da tela.
+      // Registrar inscrição — o checkin_token (E2) nasce no banco, não aqui,
+      // pra que o mesmo código sobreviva a sair/voltar da tela.
       final registration = await ref
           .read(eventsRepositoryProvider)
           .registerMemberInEvent(eventId: event.id, memberId: member.id);
@@ -849,8 +869,7 @@ class _EventRegistrationScreenState
           id: registration.id,
           eventId: event.id,
           memberId: member.id,
-          qrCode:
-              registration.qrCode ?? 'EVENT_TICKET:${event.id}:${member.id}',
+          qrCode: registration.ticketPayload,
           status: 'paid', // Por enquanto sempre pago (mesmo gratuito)
           paidAmount: event.isFree ? 0 : event.price,
           createdAt: registration.registeredAt,

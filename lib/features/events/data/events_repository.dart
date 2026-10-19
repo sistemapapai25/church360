@@ -1315,7 +1315,8 @@ class EventsRepository {
     await registerMemberInEvent(eventId: eventId, memberId: memberId);
   }
 
-  /// Inscrição pública (visitante sem login) via link compartilhável
+  /// Inscrição pública (visitante sem login) via link compartilhável.
+  /// Devolve o `checkin_token` do ingresso (E2).
   Future<String> registerGuest({
     required String eventId,
     required String guestName,
