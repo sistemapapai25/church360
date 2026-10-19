@@ -12,6 +12,8 @@ import '../../../../core/widgets/app_filter_bar.dart';
 import '../../domain/kids_badges_pdf.dart';
 import '../../domain/models/kids_checkin.dart';
 import '../providers/kids_providers.dart';
+import '../../../qr_scanner/presentation/screens/qr_scanner_screen.dart'
+    show ScannerOverlayPainter;
 
 /// Balcão do Infantil (K3, cartilha §7): check-in pelo QR dos pais ou pelo
 /// nome, "na sala agora" e check-out só para quem está autorizado.
@@ -403,7 +405,7 @@ class _BoardState extends ConsumerState<_Board> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialog) => AlertDialog(
           title: Text(
-            'Retirar ${card.name} (etiqueta ${kidsPickupCode(card)})',
+            'Retirar ${card.name} (etiqueta ${kidsPickupCode(attendanceId)})',
           ),
           content: SizedBox(
             width: double.maxFinite,
@@ -663,22 +665,56 @@ class _ScannerPage extends StatefulWidget {
 }
 
 class _ScannerPageState extends State<_ScannerPage> {
+  final _camera = MobileScannerController();
   bool _handled = false;
+
+  @override
+  void dispose() {
+    _camera.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ler QR da criança')),
-      body: MobileScanner(
-        onDetect: (capture) {
-          final code = capture.barcodes
-              .map((b) => b.rawValue)
-              .whereType<String>()
-              .firstOrNull;
-          if (code == null || _handled) return;
-          _handled = true;
-          Navigator.of(context).pop(code);
-        },
+      appBar: AppBar(
+        title: const Text('Ler QR da criança'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flash_on),
+            onPressed: () => _camera.toggleTorch(),
+            tooltip: 'Lanterna',
+          ),
+          IconButton(
+            icon: const Icon(Icons.cameraswitch),
+            onPressed: () => _camera.switchCamera(),
+            tooltip: 'Trocar câmera',
+          ),
+        ],
+      ),
+      // Mesma moldura do leitor único (§2.4). Entrada (KIN) e retirada
+      // (KOUT) vêm pelo mesmo QR; o servidor diz qual é.
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            controller: _camera,
+            onDetect: (capture) {
+              final code = capture.barcodes
+                  .map((b) => b.rawValue)
+                  .whereType<String>()
+                  .firstOrNull;
+              if (code == null || _handled) return;
+              _handled = true;
+              Navigator.of(context).pop(code);
+            },
+          ),
+          CustomPaint(
+            painter: ScannerOverlayPainter(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
       ),
     );
   }

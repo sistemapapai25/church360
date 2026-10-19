@@ -16,11 +16,14 @@ import '../../ministries/batismo/domain/baptism_pdf_renderer.dart'
     show pdfSafeText;
 import 'models/kids_checkin.dart';
 
-/// Código curto de retirada, igual nas duas vias.
-String kidsPickupCode(KidsChildCard card) => (card.attendanceId ?? card.childId)
-    .replaceAll('-', '')
-    .substring(0, 4)
-    .toUpperCase();
+/// 4 dígitos de conferência, iguais nas duas vias e no app do responsável.
+/// Saem do id do check-in. Não são credencial: a retirada exige pessoa
+/// autorizada (lista ou C360:KOUT).
+String kidsPickupCode(String attendanceId) {
+  final hex = attendanceId.replaceAll('-', '');
+  final n = int.parse(hex.substring(0, hex.length < 8 ? hex.length : 8), radix: 16);
+  return (n % 10000).toString().padLeft(4, '0');
+}
 
 Future<Uint8List> buildKidsBadgesPdf(
   List<KidsChildCard> cards, {
@@ -62,7 +65,7 @@ Future<Uint8List> buildKidsBadgesPdf(
               size: 8,
               color: PdfColors.grey700,
             ),
-            text(kidsPickupCode(c), size: 16, bold: true),
+            text(kidsPickupCode(c.attendanceId ?? c.childId), size: 16, bold: true),
           ],
         ),
         pw.SizedBox(height: 4),
@@ -75,7 +78,7 @@ Future<Uint8List> buildKidsBadgesPdf(
         ),
         pw.Spacer(),
         if (parent)
-          text('Apresente esta via para retirar a crianca.', size: 8)
+          text('Numero de conferencia. Retira so quem e autorizado.', size: 8)
         else ...[
           if (c.foodAlert)
             text(

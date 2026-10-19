@@ -13,8 +13,10 @@ void main() {
     roomName: 'Maternal',
   );
 
-  test('código de retirada: 4 primeiros do check-in, maiúsculos', () {
-    expect(kidsPickupCode(ana), 'AB12');
+  test('conferência: 4 dígitos do id do check-in', () {
+    expect(kidsPickupCode(ana.attendanceId!), '6116');
+    expect(kidsPickupCode('00000007-0000-0000-0000-000000000000'), '0007');
+    expect(kidsPickupCode('c1'), '0193');
   });
 
   test('gera o PDF com acento, travessão e emoji sem estourar', () async {
