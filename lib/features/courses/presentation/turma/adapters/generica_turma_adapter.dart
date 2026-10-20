@@ -10,6 +10,7 @@ import '../../../../members/domain/models/member_directory_entry.dart';
 import '../../../../members/presentation/providers/members_provider.dart';
 import '../../../../study_groups/domain/models/study_group.dart';
 import '../../../../study_groups/presentation/providers/study_group_provider.dart';
+import '../../../../worship/presentation/widgets/attendance_qr.dart';
 import '../turma_access.dart';
 import '../turma_origin.dart';
 import '../widgets/turma_sheet.dart';
@@ -596,6 +597,13 @@ class _RollState extends ConsumerState<_Roll> {
                   PresenceCardsButton(
                     count: unmarked.length,
                     onPressed: _saving ? null : () => _rollInCards(unmarked),
+                  ),
+                if (widget.canMark)
+                  TextButton.icon(
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('QR de presença'),
+                    onPressed: () =>
+                        showAttendanceQr(context, lessonId: widget.lesson.id),
                   ),
                 for (final p in students)
                   Padding(

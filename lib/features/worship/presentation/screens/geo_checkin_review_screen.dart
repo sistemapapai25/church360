@@ -37,7 +37,11 @@ List<WorshipAttendance> pendingGeoCheckins(List<WorshipAttendance> all) =>
 
 /// "Check-in pelo GPS · 19:28 · 12 m" (ou "Confirmou pelo celular · …").
 String geoCheckinHint(WorshipAttendance a) => [
-  a.isConfirmed ? 'Confirmou pelo celular' : 'Check-in pelo GPS',
+  a.isQr
+      ? 'Leu o QR do culto'
+      : a.isConfirmed
+      ? 'Confirmou pelo celular'
+      : 'Check-in pelo GPS',
   DateFormat.Hm().format(a.checkedInAt.toLocal()),
   if (a.distanceM != null) '${a.distanceM} m',
 ].join(' · ');
@@ -137,7 +141,11 @@ class _GeoCheckinReviewScreenState extends ConsumerState<GeoCheckinReviewScreen>
                       name: a.memberName ?? '',
                       photoUrl: a.memberPhotoUrl,
                       hint: geoCheckinHint(a),
-                      hintIcon: a.isConfirmed ? Icons.phone_android : Icons.gps_fixed,
+                      hintIcon: a.isQr
+                          ? Icons.qr_code_2
+                          : a.isConfirmed
+                          ? Icons.phone_android
+                          : Icons.gps_fixed,
                     ),
                 ],
                 disabled: _saving,

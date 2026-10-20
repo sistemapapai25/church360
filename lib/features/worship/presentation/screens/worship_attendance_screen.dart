@@ -6,6 +6,7 @@ import '../../../../core/design/community_design.dart';
 import '../../../../core/widgets/app_tabs.dart';
 import '../../../../core/widgets/presence_deck.dart';
 import '../providers/worship_provider.dart';
+import '../widgets/attendance_qr.dart';
 import 'geo_checkin_review_screen.dart';
 import '../../domain/models/worship_service.dart';
 import '../../../members/presentation/providers/members_provider.dart';
@@ -109,6 +110,12 @@ class _WorshipAttendanceScreenState
           style: CommunityDesign.titleStyle(context),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_2),
+            tooltip: 'QR de presença',
+            onPressed: () =>
+                showAttendanceQr(context, eventId: widget.worshipServiceId),
+          ),
           IconButton(
             icon: Icon(_showOnlyPresent ? Icons.filter_alt : Icons.filter_alt_outlined),
             onPressed: () {
@@ -512,6 +519,8 @@ class _PhoneCheckinTileState extends ConsumerState<_PhoneCheckinTile> {
     final a = widget.attendance;
     final (icon, color, state) = a.isValidated
         ? (Icons.verified, Colors.green, 'Validada')
+        : a.isQr
+        ? (Icons.qr_code_2, Theme.of(context).colorScheme.primary, 'Leu o QR do culto')
         : a.isConfirmed
         ? (Icons.phone_android, Theme.of(context).colorScheme.primary, 'Confirmada pela pessoa')
         : (Icons.gps_not_fixed, Colors.grey, 'Detectada pelo GPS');

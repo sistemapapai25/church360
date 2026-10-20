@@ -1223,6 +1223,13 @@ final appRouter = GoRouter(
       path: '/presenca',
       builder: (context, state) => const PresenceCheckinScreen(),
     ),
+    // Presença pelo QR do culto ou da aula (E5). Exige login: sem sessão o
+    // redirect leva ao /login e volta para cá.
+    GoRoute(
+      path: '/presenca/:token',
+      builder: (context, state) =>
+          PresenceCheckinScreen(token: state.pathParameters['token']),
+    ),
 
     // Lista de notificações
     GoRoute(

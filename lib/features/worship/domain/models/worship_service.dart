@@ -100,7 +100,8 @@ class WorshipAttendance {
   /// mais_ou_menos. Nulo se não respondeu.
   final String? reaction;
 
-  /// `manual` (Check-in do módulo Cultos) ou `geo` (o próprio celular).
+  /// `manual` (Check-in do módulo Cultos), `geo` (o próprio celular) ou
+  /// `qr` (leu o QR de presença do culto, E5).
   final String source;
   final int? distanceM;
 
@@ -123,12 +124,14 @@ class WorshipAttendance {
     this.validatedAt,
   });
 
-  bool get isGeo => source == 'geo';
+  /// Pelo celular (GPS ou QR): entra na fila de validação do diácono.
+  bool get isGeo => source != 'manual';
+  bool get isQr => source == 'qr';
 
   /// Estados da presença pelo celular (A4): detectada (geo sem reação),
-  /// confirmada (reagiu, ou manual) e validada (diácono conferiu).
+  /// confirmada (reagiu, leu o QR ou manual) e validada (diácono conferiu).
   bool get isValidated => validatedAt != null;
-  bool get isConfirmed => reaction != null || !isGeo;
+  bool get isConfirmed => reaction != null || source != 'geo';
 
   factory WorshipAttendance.fromJson(Map<String, dynamic> json) {
     return WorshipAttendance(
