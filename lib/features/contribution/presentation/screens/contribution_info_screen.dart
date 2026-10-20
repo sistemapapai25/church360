@@ -5,6 +5,8 @@ import '../providers/contribution_provider.dart';
 import '../../domain/models/contribution_info.dart';
 import '../../../../core/design/community_design.dart';
 import '../../../../core/layout/readable_width.dart';
+import '../../../../core/utils/pix_br_code.dart';
+import '../../../../core/widgets/church_qr_card.dart';
 
 /// Tela de visualização de informações de contribuição (para usuários)
 class ContributionInfoScreen extends ConsumerWidget {
@@ -223,6 +225,11 @@ class ContributionInfoScreen extends ConsumerWidget {
 
   Widget _buildPixCard(BuildContext context, ContributionInfo info) {
     final cs = Theme.of(context).colorScheme;
+    final code = pixBrCode(
+      key: info.pixKey!,
+      keyType: info.pixType,
+      name: info.accountHolder ?? info.churchName,
+    );
     return Container(
       decoration: CommunityDesign.overlayDecoration(cs),
       child: Padding(
@@ -302,6 +309,32 @@ class ContributionInfoScreen extends ConsumerWidget {
                   tooltip: 'Copiar chave PIX',
                 ),
               ],
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ChurchQrCard(
+                data: code,
+                title: 'PIX para ${info.churchName}',
+                subtitle: 'Leia no app do seu banco e digite o valor',
+                size: 200,
+                actions: const {ChurchQrAction.share, ChurchQrAction.print},
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copiar PIX copia e cola'),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: code));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('PIX copia e cola copiado!'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),

@@ -62,6 +62,13 @@ Future<Uint8List> buildCertificatePdf(CertificateInfo info) async {
             pw.SizedBox(height: 24),
             text('Emitido em $date'),
             pw.Spacer(),
+            pw.BarcodeWidget(
+              barcode: pw.Barcode.qrCode(),
+              data: 'https://papai.church360.com.br/certificado/${info.code}',
+              width: 64,
+              height: 64,
+            ),
+            pw.SizedBox(height: 6),
             text(
               'Codigo ${info.code} - valide em papai.church360.com.br/certificado/${info.code}',
               size: 10,
