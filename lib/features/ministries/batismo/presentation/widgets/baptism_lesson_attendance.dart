@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../../core/design/community_design.dart';
 import '../../../../../core/widgets/presence_deck.dart';
+import '../../../../worship/presentation/widgets/attendance_qr.dart';
 import '../../data/baptism_lesson_meeting.dart';
 import '../../data/baptism_repository.dart';
 import '../../domain/baptism_attendance_roll.dart';
@@ -245,6 +246,15 @@ class _BaptismLessonAttendanceState
                         .where((s) => current.statusOf(s) == null)
                         .length,
                     onPressed: () => _rollInCards(current),
+                  ),
+                if (opened.canEdit)
+                  TextButton.icon(
+                    icon: const Icon(Icons.qr_code_2),
+                    label: const Text('QR de presença'),
+                    onPressed: () => showAttendanceQr(
+                      context,
+                      lessonId: widget.lesson.lessonId,
+                    ),
                   ),
                 BaptismRollStudents(
                   roll: current,

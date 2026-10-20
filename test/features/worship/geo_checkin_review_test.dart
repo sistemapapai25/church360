@@ -94,4 +94,11 @@ void main() {
     expect(result, {'u2'});
     await tester.pump(const Duration(seconds: 5)); // deixa o SnackBar sair
   });
+
+  test('QR do culto (E5) entra na fila do diácono com rótulo próprio', () {
+    final qr = _att('u5', 'Leu QR', source: 'qr');
+    expect(pendingGeoCheckins([qr, _att('u6', 'Manual', source: 'manual')]), [qr]);
+    expect(qr.isConfirmed, isTrue);
+    expect(geoCheckinHint(qr), startsWith('Leu o QR do culto'));
+  });
 }
