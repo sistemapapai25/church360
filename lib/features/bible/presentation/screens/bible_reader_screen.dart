@@ -21,6 +21,110 @@ import '../../../members/presentation/providers/members_provider.dart';
 /// Provider para tamanho de fonte
 final fontSizeProvider = StateProvider<double>((ref) => 16.0);
 
+/// Versículos marcados no modo de seleção, por capítulo. Vazio = modo desligado.
+final bibleVerseSelectionProvider = StateProvider.autoDispose
+    .family<Set<int>, ({int bookId, int chapter})>((ref, key) => <int>{});
+
+String _nomeDoLivro(BibleVerse v) => v.bookName ?? v.bookAbbrev ?? 'Livro ${v.bookId}';
+
+/// Texto copiado/compartilhado: "João 3:16-18,21", linha em branco, versículos, assinatura.
+String formatVersesForCopy(String bookName, int chapter, List<BibleVerse> verses) {
+  if (verses.isEmpty) return '';
+  final sorted = [...verses]..sort((a, b) => a.verse.compareTo(b.verse));
+  final body = sorted.length == 1
+      ? sorted.single.text
+      : sorted.map((v) => '${v.verse} ${v.text}').join('\n');
+  final ref = _numerosCompactos(sorted.map((v) => v.verse));
+  return '$bookName $chapter:$ref\n\n$body\n\n— Bíblia Sagrada (ARC)';
+}
+
+/// [16, 17, 18, 21] -> "16-18,21"
+String _numerosCompactos(Iterable<int> numeros) {
+  final nums = numeros.toSet().toList()..sort();
+  final partes = <String>[];
+  var inicio = nums.first;
+  var fim = nums.first;
+  void fecha() => partes.add(inicio == fim ? '$inicio' : '$inicio-$fim');
+  for (final n in nums.skip(1)) {
+    if (n == fim + 1) {
+      fim = n;
+    } else {
+      fecha();
+      inicio = fim = n;
+    }
+  }
+  fecha();
+  return partes.join(',');
+}
+
+String? _nn(String? s) {
+  final t = s?.trim();
+  return (t == null || t.isEmpty) ? null : t;
+}
+
+String? _junta(Iterable<String?> partes, String sep) {
+  final ok = partes.whereType<String>().toList();
+  return ok.isEmpty ? null : ok.join(sep);
+}
+
+/// Texto puro do pop-up de uma palavra: léxico, e o estudo se houver.
+String formatLexemeForCopy(
+  BibleLexeme lexeme,
+  BibleWordStudy? study, {
+  String? surface,
+  String? reference,
+}) {
+  final translit = _nn(lexeme.transliteration);
+  final ia = lexeme.ptSource?.startsWith('IA') ?? false;
+  final blocos = <String?>[
+    _junta([lexeme.strongCode, if (_nn(surface) != null) '“${_nn(surface)}”'], ' · '),
+    _junta([_nn(lexeme.lemma), if (translit != null) '($translit)'], ' '),
+    _nn(lexeme.ptGloss),
+    _nn(lexeme.ptDefinition),
+    if (lexeme.ptSource == 'UBS SDBH pt') _ubsCredit,
+    if (ia) 'Português gerado com IA, em revisão.',
+  ];
+  if (study != null) {
+    final raizTr = _nn(study.raizTransliteracao);
+    final raiz = _junta([_nn(study.raiz), if (raizTr != null) '($raizTr)'], ' ');
+    blocos.add(
+      _junta([
+        _nn(study.titulo),
+        _junta([_nn(study.palavraOriginal), _nn(study.transliteracao)], ' · '),
+        if (raiz != null) 'Raiz: $raiz',
+      ], '\n'),
+    );
+    for (final secao in study.secoes) {
+      blocos.add(_secaoEmTexto(secao));
+    }
+  }
+  blocos.add(_nn(reference));
+  return blocos.whereType<String>().join('\n\n');
+}
+
+String? _secaoEmTexto(Map<String, dynamic> secao) {
+  final tipo = secao['tipo'] as String? ?? '';
+  final linhas = <String?>[
+    _nn(secao['titulo'] as String?) ?? _WordStudyView._defaultTitles[tipo],
+  ];
+  final blocos = (secao['blocos'] as List? ?? const []).whereType<Map<String, dynamic>>();
+  for (final bloco in blocos) {
+    switch (bloco['tipo']) {
+      case 'lista':
+        linhas.addAll((bloco['itens'] as List? ?? const []).whereType<String>().map((i) => '• $i'));
+      case 'letras':
+        linhas.addAll(
+          (bloco['letras'] as List? ?? const [])
+              .whereType<Map<String, dynamic>>()
+              .map((l) => _junta([l['glifo'] as String?, l['nome'] as String?, l['descricao'] as String?], ' ')),
+        );
+      default:
+        linhas.add(_nn(bloco['texto'] as String?));
+    }
+  }
+  return _junta(linhas, '\n');
+}
+
 /// Tela de Leitura da Bíblia
 class BibleReaderScreen extends ConsumerWidget {
   final int bookId;
@@ -40,8 +144,23 @@ class BibleReaderScreen extends ConsumerWidget {
     }
   }
 
+  void _setSelection(WidgetRef ref, ({int bookId, int chapter}) key, Set<int> ids) {
+    ref.read(bibleVerseSelectionProvider(key).notifier).state = ids;
+  }
+
+  void _toggleVerse(WidgetRef ref, ({int bookId, int chapter}) key, int verseId) {
+    final atual = ref.read(bibleVerseSelectionProvider(key));
+    _setSelection(
+      ref,
+      key,
+      atual.contains(verseId) ? atual.difference({verseId}) : {...atual, verseId},
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final selectionKey = (bookId: bookId, chapter: chapter);
+    final selection = ref.watch(bibleVerseSelectionProvider(selectionKey));
     final versesAsync = ref.watch(
       bibleChapterVersesProvider((bookId: bookId, chapter: chapter)),
     );
@@ -57,7 +176,13 @@ class BibleReaderScreen extends ConsumerWidget {
         .value;
     final fontSize = ref.watch(fontSizeProvider);
 
-    return Scaffold(
+    return PopScope(
+      // Voltar com seleção ativa só sai do modo de seleção.
+      canPop: selection.isEmpty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _setSelection(ref, selectionKey, <int>{});
+      },
+      child: Scaffold(
       backgroundColor: CommunityDesign.scaffoldBackgroundColor(context),
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -75,7 +200,9 @@ class BibleReaderScreen extends ConsumerWidget {
           padding: const EdgeInsets.only(left: 8),
           child: IconButton(
             tooltip: 'Voltar',
-            onPressed: () => _handleBack(context),
+            onPressed: () => selection.isNotEmpty
+                ? _setSelection(ref, selectionKey, <int>{})
+                : _handleBack(context),
             icon: const Icon(AppIcons.back),
           ),
         ),
@@ -232,11 +359,40 @@ class BibleReaderScreen extends ConsumerWidget {
                         fontSize: fontSize,
                         tokens: tokensByVerseId[verse.id] ?? const [],
                         studies: studiesAsync.value?[verse.id] ?? const [],
+                        selectionMode: selection.isNotEmpty,
+                        selected: selection.contains(verse.id),
+                        onToggleSelection: () =>
+                            _toggleVerse(ref, selectionKey, verse.id),
                       );
                     },
                   ),
                 ),
               ),
+              if (selection.isNotEmpty)
+                _SelectionBar(
+                  count: selection.length,
+                  onCopy: () {
+                    final texto = formatVersesForCopy(
+                      _nomeDoLivro(verses.first),
+                      chapter,
+                      verses.where((v) => selection.contains(v.id)).toList(),
+                    );
+                    Clipboard.setData(ClipboardData(text: texto));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Versículos copiados!')),
+                    );
+                  },
+                  onShare: () {
+                    Share.share(
+                      formatVersesForCopy(
+                        _nomeDoLivro(verses.first),
+                        chapter,
+                        verses.where((v) => selection.contains(v.id)).toList(),
+                      ),
+                    );
+                  },
+                  onClose: () => _setSelection(ref, selectionKey, <int>{}),
+                ),
             ],
           );
         },
@@ -264,6 +420,7 @@ class BibleReaderScreen extends ConsumerWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -381,13 +538,22 @@ class _VerseItem extends ConsumerWidget {
   final double fontSize;
   final List<BibleVerseToken> tokens;
   final List<BibleWordStudy> studies;
+  final bool selectionMode;
+  final bool selected;
+  final VoidCallback onToggleSelection;
 
   const _VerseItem({
     required this.verse,
     required this.fontSize,
     required this.tokens,
+    required this.selectionMode,
+    required this.selected,
+    required this.onToggleSelection,
     this.studies = const [],
   });
+
+  String get _textoCopiado =>
+      formatVersesForCopy(_nomeDoLivro(verse), verse.chapter, [verse]);
 
   void _showVerseOptions(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
@@ -400,9 +566,7 @@ class _VerseItem extends ConsumerWidget {
               leading: const Icon(AppIcons.copy),
               title: const Text('Copiar'),
               onTap: () {
-                Clipboard.setData(
-                  ClipboardData(text: '${verse.reference}\n${verse.text}'),
-                );
+                Clipboard.setData(ClipboardData(text: _textoCopiado));
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Versículo copiado!')),
@@ -414,11 +578,18 @@ class _VerseItem extends ConsumerWidget {
               title: const Text('Compartilhar'),
               onTap: () {
                 Navigator.pop(context);
-                Share.share(
-                  '${verse.reference}\n\n${verse.text}\n\n- Bíblia Sagrada (ARC)',
-                );
+                Share.share(_textoCopiado);
               },
             ),
+            if (!selectionMode)
+              ListTile(
+                leading: const Icon(AppIcons.checklist),
+                title: const Text('Selecionar versículos'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onToggleSelection();
+                },
+              ),
             ListTile(
               leading: const Icon(AppIcons.bookmarkOutline),
               title: const Text('Adicionar aos favoritos'),
@@ -476,8 +647,11 @@ class _VerseItem extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: GlassCard(
+      child: Stack(
+        children: [
+      GlassCard(
         radius: 14,
+        onTap: selectionMode ? onToggleSelection : null,
         onLongPress: () => _showVerseOptions(context, ref),
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -508,11 +682,16 @@ class _VerseItem extends ConsumerWidget {
                       tokens: tokens,
                       style: baseStyle,
                       onOpenLexeme: (lexeme, surface, anchor) {
+                        if (selectionMode) {
+                          onToggleSelection();
+                          return;
+                        }
                         _showLexemeOverlay(
                           context: context,
                           anchor: anchor,
                           lexeme: lexeme,
                           surface: surface,
+                          reference: verse.reference,
                           study: studies
                               .where(
                                 (s) => s.matches(
@@ -527,6 +706,19 @@ class _VerseItem extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+          if (selected)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -600,6 +792,7 @@ void _showLexemeOverlay({
   required Offset anchor,
   required BibleLexeme lexeme,
   required String surface,
+  String? reference,
   BibleWordStudy? study,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
@@ -657,6 +850,7 @@ void _showLexemeOverlay({
                   child: _LexemeCard(
                     lexeme: lexeme,
                     surface: surface,
+                    reference: reference,
                     study: study,
                     onClose: () => entry?.remove(),
                   ),
@@ -685,6 +879,7 @@ String _languageLabel(String language) => switch (language) {
 class _LexemeCard extends StatelessWidget {
   final BibleLexeme lexeme;
   final String surface;
+  final String? reference;
   final BibleWordStudy? study;
   final VoidCallback onClose;
 
@@ -692,6 +887,7 @@ class _LexemeCard extends StatelessWidget {
     required this.lexeme,
     required this.surface,
     required this.onClose,
+    this.reference,
     this.study,
   });
 
@@ -755,6 +951,25 @@ class _LexemeCard extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'Copiar',
+                    onPressed: () {
+                      Clipboard.setData(
+                        ClipboardData(
+                          text: formatLexemeForCopy(
+                            lexeme,
+                            study,
+                            surface: surface,
+                            reference: reference,
+                          ),
+                        ),
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copiado!')),
+                      );
+                    },
+                    icon: const Icon(AppIcons.copy),
+                  ),
+                  IconButton(
                     tooltip: 'Fechar',
                     onPressed: onClose,
                     icon: const Icon(Icons.close),
@@ -765,6 +980,7 @@ class _LexemeCard extends StatelessWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: SelectionArea(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -813,9 +1029,64 @@ class _LexemeCard extends StatelessWidget {
                     if (study != null) _WordStudyView(study: study!),
                   ],
                 ),
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Barra do modo de seleção de versículos, embaixo da lista.
+class _SelectionBar extends StatelessWidget {
+  final int count;
+  final VoidCallback onCopy;
+  final VoidCallback onShare;
+  final VoidCallback onClose;
+
+  const _SelectionBar({
+    required this.count,
+    required this.onCopy,
+    required this.onShare,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Sair da seleção',
+                onPressed: onClose,
+                icon: const Icon(AppIcons.close),
+              ),
+              Expanded(
+                child: Text(
+                  count == 1 ? '1 selecionado' : '$count selecionados',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Copiar',
+                onPressed: onCopy,
+                icon: const Icon(AppIcons.copy),
+              ),
+              IconButton(
+                tooltip: 'Compartilhar',
+                onPressed: onShare,
+                icon: const Icon(AppIcons.share),
+              ),
+            ],
+          ),
         ),
       ),
     );
