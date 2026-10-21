@@ -284,6 +284,39 @@ class MinistriesRepository {
             )
             .toList();
       } catch (_) {}
+
+      // Sem `members.view` a RLS de `user_account` só libera a própria linha
+      // e a equipe aparecia como "Sem nome" (Líder do Jovens Drops, 21/10).
+      // O diretório do tenant expõe só nome/apelido a qualquer membro logado.
+      final stillMissing = members
+          .where((m) => m.memberName.isEmpty)
+          .map((m) => m.memberId)
+          .toSet()
+          .toList();
+      if (stillMissing.isNotEmpty) {
+        try {
+          final dir = await _supabase.rpc(
+            'get_tenant_member_directory',
+            params: {'p_ids': stillMissing},
+          );
+          final nameById = <String, String>{
+            for (final row in (dir as List))
+              row['id'] as String:
+                  ((row['nickname'] ?? '').toString().trim().isNotEmpty
+                          ? row['nickname']
+                          : row['full_name'] ?? '')
+                      .toString()
+                      .trim(),
+          };
+          members = members
+              .map(
+                (m) => (nameById[m.memberId] ?? '').isNotEmpty
+                    ? m.copyWith(memberName: nameById[m.memberId])
+                    : m,
+              )
+              .toList();
+        } catch (_) {}
+      }
     }
 
     members.sort((a, b) => compareNames(a.memberName, b.memberName));
