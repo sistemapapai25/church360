@@ -13,6 +13,9 @@ class BibleWordStudy {
   final String? raiz;
   final String? raizTransliteracao;
 
+  /// `origem` diz "gerado com IA" enquanto o pastor não aprova; o pop-up mostra o aviso.
+  final bool geradoPorIa;
+
   /// Seções da palavra seguidas das seções do versículo, na ordem do padrão.
   final List<Map<String, dynamic>> secoes;
 
@@ -27,6 +30,7 @@ class BibleWordStudy {
     this.transliteracao,
     this.raiz,
     this.raizTransliteracao,
+    this.geradoPorIa = false,
   });
 
   /// Linha de bible_word_study_occurrence com bible_word_study(*) embutido.
@@ -44,6 +48,7 @@ class BibleWordStudy {
       transliteracao: study['transliteracao'] as String?,
       raiz: study['raiz'] as String?,
       raizTransliteracao: study['raiz_transliteracao'] as String?,
+      geradoPorIa: (study['origem'] as String? ?? '').contains('com IA'),
       secoes: [...sections(study['secoes']), ...sections(json['secoes'])],
     );
   }

@@ -32,4 +32,17 @@ void main() {
     expect(study.matches(strongCode: 'H9999', surface: 'Laço'), isTrue);
     expect(study.matches(strongCode: 'H9999', surface: 'do'), isFalse);
   });
+
+  test('aviso de IA só quando a origem diz "com IA"', () {
+    expect(study.geradoPorIa, isFalse);
+    final ia = BibleWordStudy.fromOccurrenceJson({
+      'verse_id': 1,
+      'bible_word_study': {
+        'titulo': 'Dias',
+        'language': 'hebrew',
+        'origem': 'Estudo palavra por palavra (gerado com IA, 20/10/2026)',
+      },
+    });
+    expect(ia.geradoPorIa, isTrue);
+  });
 }

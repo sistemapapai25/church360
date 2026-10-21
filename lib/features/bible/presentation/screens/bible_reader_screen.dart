@@ -1156,6 +1156,13 @@ class _WordStudyView extends StatelessWidget {
               ),
               if (original.isNotEmpty) Text(original, style: meta),
               if (raiz.isNotEmpty) Text('Raiz: $raiz', style: meta),
+              if (study.geradoPorIa) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'Estudo gerado com auxílio de IA — em revisão pastoral',
+                  style: meta.copyWith(fontStyle: FontStyle.italic),
+                ),
+              ],
             ],
           ),
         ),
