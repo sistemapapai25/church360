@@ -240,11 +240,9 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
                 uniqueByRole.putIfAbsent(ur.roleId, () => ur);
               }
 
-              final filtered = uniqueByRole.values.where((ur) {
-                if (_searchQuery.isEmpty) return true;
-                final name = (ur.role?.name ?? roleNameById[ur.roleId] ?? '').toLowerCase();
-                return name.contains(_searchQuery);
-              }).toList();
+              // A busca filtra pessoas (lista acima). Filtrar os cargos pelo
+              // mesmo texto escondia todos ("gab" → "Sem cargos atribuídos").
+              final filtered = uniqueByRole.values.toList();
 
               if (filtered.isEmpty) {
                 return Padding(
