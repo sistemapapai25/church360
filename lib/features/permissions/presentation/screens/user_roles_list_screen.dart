@@ -195,7 +195,11 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
           member.displayName,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        subtitle: rolesAsync.when(
+        // Ficha sem login (ex.: membro importado) não pode receber cargo;
+        // avisa aqui em vez de só depois de tentar atribuir.
+        subtitle: member.authUserId == null
+            ? const Text('Sem login no app — não pode receber cargo')
+            : rolesAsync.when(
           data: (items) {
             final uniqueRoleIds = items.map((ur) => ur.roleId).toSet();
             return Text('${uniqueRoleIds.length} cargo(s) atribuído(s)');
@@ -209,7 +213,7 @@ class _UserRolesListScreenState extends ConsumerState<UserRolesListScreen> {
             child: Row(
               children: [
                 OutlinedButton.icon(
-                  onPressed: () {
+                  onPressed: member.authUserId == null ? null : () {
                     showDialog(
                       context: context,
                       builder: (_) => _AssignRoleToUserDialog(userId: member.id),
