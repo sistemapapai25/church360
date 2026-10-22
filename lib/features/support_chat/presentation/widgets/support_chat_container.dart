@@ -37,6 +37,9 @@ class SupportChatContainer extends ConsumerStatefulWidget {
   @override
   ConsumerState<SupportChatContainer> createState() =>
       _SupportChatContainerState();
+
+  static void closeOf(BuildContext context) =>
+      _SupportChatContainerState.closeOf(context);
 }
 
 class _SupportChatContainerState extends ConsumerState<SupportChatContainer>
@@ -116,6 +119,13 @@ class _SupportChatContainerState extends ConsumerState<SupportChatContainer>
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_positionPrefsKey, '${offset.dx},${offset.dy}');
     } catch (_) {}
+  }
+
+  /// Fecha o chat aberto acima de [context]: o botão de tela do Moisés
+  /// navega, e a tela precisa aparecer por trás.
+  static void closeOf(BuildContext context) {
+    final state = context.findAncestorStateOfType<_SupportChatContainerState>();
+    if (state != null && state._isOpen) state._toggle();
   }
 
   void _toggle() {

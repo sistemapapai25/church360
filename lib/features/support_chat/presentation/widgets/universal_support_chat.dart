@@ -13,13 +13,16 @@ import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../../../core/constants/supabase_constants.dart';
+import '../../../../core/navigation/app_router.dart';
 import '../../../../core/utils/storage_upload_path.dart';
 import '../../data/support_agents_data.dart';
 import '../../domain/models/support_agent.dart';
+import '../../domain/nav_links.dart';
 import '../../domain/speech_text.dart';
 import '../providers/agents_providers.dart';
 import 'agent_avatar.dart';
 import 'audio_message_bubble.dart';
+import 'support_chat_container.dart';
 import '../../../members/presentation/providers/members_provider.dart';
 
 /// Componente para o Chat de Suporte Universal
@@ -1530,7 +1533,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
         await _saveThread(newThreadId);
       }
 
-      final parsed = _parseTransferSuggest(replyRaw);
+      final nav = parseNavLinks(replyRaw);
+      final navLinks = nav.links;
+      final parsed = _parseTransferSuggest(nav.text);
       final reply = (parsed['text'] ?? '').toString().trim();
       final candidates = (parsed['candidates'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
 
@@ -1542,6 +1547,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
             'time': DateTime.now(),
             'agent': target,
             if (candidates.isNotEmpty) 'transferCandidates': candidates,
+            if (navLinks.isNotEmpty) 'navLinks': navLinks,
           });
           _pendingTransferCandidates = candidates;
         });
@@ -1698,7 +1704,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
       // Com atendente, a function não responde: a fala do atendente chega pelo polling.
       if (replyRaw.trim().isEmpty && _supportStatus != 'bot') return;
 
-      final contactParsed = _parseContactUpdateProposal(replyRaw);
+      final nav = parseNavLinks(replyRaw);
+      final navLinks = nav.links;
+      final contactParsed = _parseContactUpdateProposal(nav.text);
       final parsed = _parseTransferSuggest((contactParsed['text'] ?? '').toString());
       final reply = (parsed['text'] ?? '').toString().trim();
       final candidates = (parsed['candidates'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
@@ -1712,6 +1720,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'agent': _agent,
           if (candidates.isNotEmpty) 'transferCandidates': candidates,
           if (contactProposal != null) 'contactUpdateProposal': contactProposal,
+          if (navLinks.isNotEmpty) 'navLinks': navLinks,
         };
         setState(() {
           _messages.add(replyMsg);
@@ -2054,6 +2063,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     final transferCandidates = (!isUser && msg['transferCandidates'] is List)
         ? (msg['transferCandidates'] as List).cast<Map<String, dynamic>>()
         : const <Map<String, dynamic>>[];
+    final navLinks = (!isUser && msg['navLinks'] is List)
+        ? (msg['navLinks'] as List).whereType<Map>().toList()
+        : const <Map>[];
     final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
         ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
         : null;
@@ -2179,6 +2191,31 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                               ),
                             );
                           }).toList(),
+                        ),
+                      ],
+                      if (navLinks.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final l in navLinks)
+                              FilledButton.tonalIcon(
+                                onPressed: () {
+                                  // O chat fica acima do router (main.dart): navega pelo
+                                  // appRouter global, igual na web e no nativo.
+                                  SupportChatContainer.closeOf(context);
+                                  appRouter.push(l['route'].toString());
+                                },
+                                icon: const Icon(Icons.open_in_new, size: 16),
+                                label: Text(l['label'].toString()),
+                                style: FilledButton.styleFrom(
+                                  shape: const StadiumBorder(),
+                                  visualDensity: VisualDensity.compact,
+                                  textStyle: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                       if (!isUser && contactProposal != null) ...[

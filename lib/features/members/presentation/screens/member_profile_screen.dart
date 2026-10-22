@@ -510,6 +510,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
           _buildHeader(context, ref, member),
 
           const SizedBox(height: _sectionGap),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+            child: _buildCompletionCard(context, member),
+          ),
+          const SizedBox(height: _sectionGap),
           // Informações Pessoais
           _buildSection(
             context,
@@ -572,20 +577,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             child: _buildAddressInfo(context, member),
           ),
           const SizedBox(height: _sectionGap),
-          // Pendências do Cadastro
-          _buildSection(
-            context,
-            icon: AppIcons.warningAmber,
-            title: 'Pendências do Cadastro',
-            sectionKey: 'pendencias',
-            iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
-            iconBackgroundColor: Theme.of(
-              context,
-            ).colorScheme.onSurfaceVariant.withValues(alpha: 0.1),
-            titleColor: Theme.of(context).colorScheme.onSurface,
-            child: _buildCompletionStatus(context, member),
-          ),
-          const SizedBox(height: _sectionGap),
           // Liderança (se aplicável)
           if (member.memberType == 'titular') ...[
             _buildSection(
@@ -608,8 +599,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     WidgetRef ref,
     Member member,
   ) {
-    final completion = _completionPercentage(member);
-    final hasPending = completion < 100;
     final streakAsync = ref.watch(currentUserReadingStreakProvider);
     final totalAsync = ref.watch(currentUserTotalReadingsProvider);
     final readingsAsync = ref.watch(currentUserReadingsWithDevotionalProvider);
@@ -625,13 +614,11 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
       padding: const EdgeInsets.only(bottom: 32),
       children: [
         _buildMyHeader(context, ref, member),
-        if (hasPending) ...[
-          const SizedBox(height: _sectionGap),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
-            child: _buildPendingBanner(context, completion, member),
-          ),
-        ],
+        const SizedBox(height: _sectionGap),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: _pagePadding),
+          child: _buildCompletionCard(context, member),
+        ),
         const SizedBox(height: _sectionGap),
         _buildMyJourneyCard(
           context,
@@ -1365,56 +1352,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     );
   }
 
-  Widget _buildPendingBanner(
-    BuildContext context,
-    int completion,
-    Member member,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(_cardRadius),
-      onTap: () => _showMissingFieldsSheet(context, member),
-      child: Container(
-        decoration: CommunityDesign.overlayDecoration(
-          colorScheme,
-        ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
-        padding: const EdgeInsets.all(_cardPadding),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE67E22).withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                AppIcons.warningAmber,
-                color: Color(0xFFE67E22),
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Cadastro incompleto • $completion% preenchido',
-                style: CommunityDesign.titleStyle(context).copyWith(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFE67E22),
-                ),
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: const Color(0xFFE67E22).withValues(alpha: 0.7),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildMyJourneyCard(
     BuildContext context,
     Member member, {
@@ -2019,135 +1956,141 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
     return _getMaritalStatusLabel(status);
   }
 
-  /// Campos que entram na conta de completude do cadastro, com rótulo
-  /// legível e se estão preenchidos. "Notas/observações" é um campo livre,
-  /// não um dado cadastral, e não entra aqui.
-  List<MapEntry<String, bool>> _completionFields(Member member) {
-    final fields = <MapEntry<String, bool>>[
-      MapEntry('Nome', _hasValue(member.firstName)),
-      MapEntry('Sobrenome', _hasValue(member.lastName)),
-      MapEntry('Apelido', _hasValue(member.nickname)),
-      MapEntry('E-mail', _hasValue(member.email)),
-      MapEntry('Telefone', _hasValue(member.phone)),
-      MapEntry('CPF', _hasValue(member.cpf)),
-      MapEntry('Data de Nascimento', member.birthdate != null),
-      MapEntry('Gênero', _hasValue(member.gender)),
-      MapEntry('Estado Civil', _hasValue(member.maritalStatus)),
-      MapEntry('Profissão', _hasValue(member.profession)),
-      MapEntry('Endereço', _hasValue(member.address)),
-      MapEntry('Complemento do Endereço', _hasValue(member.addressComplement)),
-      MapEntry('Bairro', _hasValue(member.neighborhood)),
-      MapEntry('Cidade', _hasValue(member.city)),
-      MapEntry('Estado', _hasValue(member.state)),
-      MapEntry('CEP', _hasValue(member.zipCode)),
-      MapEntry('Tipo de Membro', _hasValue(member.memberType)),
-      MapEntry('Data de Membresia', member.membershipDate != null),
-      MapEntry('Data de Conversão', member.conversionDate != null),
-      MapEntry('Data de Batismo', member.baptismDate != null),
-      MapEntry('Foto de Perfil', _hasValue(member.photoUrl)),
-    ];
+  /// Campos que entram na conta de completude do cadastro: rótulo, se está
+  /// preenchido e onde fica no formulário (`secao`/`campo` do link
+  /// `/members/:id/edit?section=&field=`). "Notas/observações" é campo livre
+  /// e não entra. Datas de membresia e de conversão saíram da régua em
+  /// 22/10/2026 (decisão do usuário): quase ninguém sabe informar.
+  List<({String rotulo, bool ok, String secao, String campo})>
+  _completionFields(Member member) {
+    ({String rotulo, bool ok, String secao, String campo}) f(
+      String rotulo,
+      bool ok,
+      String secao,
+      String campo,
+    ) => (rotulo: rotulo, ok: ok, secao: secao, campo: campo);
 
-    // "Data de casamento" só faz sentido pra quem é casado: para os demais
-    // estados civis o campo não se aplica e não deve contar contra a
-    // completude do cadastro.
-    if (member.maritalStatus == 'married') {
-      fields.add(MapEntry('Data de Casamento', member.marriageDate != null));
+    return [
+      f('Nome', _hasValue(member.firstName), 'personal', 'first_name'),
+      f('Sobrenome', _hasValue(member.lastName), 'personal', 'last_name'),
+      f('Apelido', _hasValue(member.nickname), 'personal', 'nickname'),
+      f('E-mail', _hasValue(member.email), 'personal', 'email'),
+      f('Telefone', _hasValue(member.phone), 'personal', 'phone'),
+      f('CPF', _hasValue(member.cpf), 'personal', 'cpf'),
+      f('Data de Nascimento', member.birthdate != null, 'personal', 'birthdate'),
+      f('Gênero', _hasValue(member.gender), 'personal', 'gender'),
+      f('Estado Civil', _hasValue(member.maritalStatus), 'personal', 'marital_status'),
+      // Só pra quem é casado: nos demais estados civis não se aplica.
+      if (member.maritalStatus == 'married')
+        f('Data de Casamento', member.marriageDate != null, 'personal', 'marriage_date'),
+      f('Profissão', _hasValue(member.profession), 'personal', 'profession'),
+      f('Endereço', _hasValue(member.address), 'address', 'address'),
+      f('Complemento do Endereço', _hasValue(member.addressComplement), 'address', 'address_complement'),
+      f('Bairro', _hasValue(member.neighborhood), 'address', 'neighborhood'),
+      f('Cidade', _hasValue(member.city), 'address', 'city'),
+      f('Estado', _hasValue(member.state), 'address', 'state'),
+      f('CEP', _hasValue(member.zipCode), 'address', 'zip_code'),
+      f('Tipo de Membro', _hasValue(member.memberType), 'church', 'member_type'),
+      f('Data de Batismo', member.baptismDate != null, 'church', 'baptism_date'),
+      // A foto não fica no formulário: o link abre o seletor aqui mesmo.
+      f('Foto de Perfil', _hasValue(member.photoUrl), 'photo', 'photo_url'),
+    ];
+  }
+
+  /// Card de completude, sempre aberto no topo do perfil. Cada campo que
+  /// falta é um botão que leva direto a ele — para quem pode editar a ficha
+  /// (a própria pessoa, ou quem tem `members.edit`/`visitors.edit`); os
+  /// demais veem a lista sem link. A 100% vira só um selo discreto.
+  Widget _buildCompletionCard(BuildContext context, Member member) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fields = _completionFields(member);
+    final missing = fields.where((c) => !c.ok).toList();
+    final percentage =
+        (((fields.length - missing.length) / fields.length) * 100).round();
+
+    if (missing.isEmpty) {
+      return Row(
+        children: [
+          const Icon(Icons.verified, color: Colors.green, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            'Cadastro completo',
+            style: CommunityDesign.metaStyle(
+              context,
+            ).copyWith(fontWeight: FontWeight.w600),
+          ),
+        ],
+      );
     }
 
-    return fields;
-  }
+    const laranja = Color(0xFFE67E22);
+    final canEdit = _canChangePhotoOf(member);
 
-  int _completionPercentage(Member member) {
-    final fields = _completionFields(member);
-    final filledCount = fields.where((f) => f.value).length;
-    return ((filledCount / fields.length) * 100).round();
-  }
-
-  /// Rótulos dos campos que ainda faltam preencher, na ordem do formulário.
-  List<String> _missingFieldLabels(Member member) {
-    return _completionFields(
-      member,
-    ).where((f) => !f.value).map((f) => f.key).toList();
-  }
-
-  void _showMissingFieldsSheet(BuildContext context, Member member) {
-    final missing = _missingFieldLabels(member);
-    final colorScheme = Theme.of(context).colorScheme;
-    final currentMember = ref.read(currentMemberProvider).valueOrNull;
-    final canEdit = currentMember?.id == member.id;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.warning_amber, color: Color(0xFFE67E22)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        missing.isEmpty
-                            ? 'Cadastro completo'
-                            : 'Faltam ${missing.length} ${missing.length == 1 ? 'dado' : 'dados'}',
-                        style: CommunityDesign.titleStyle(
-                          sheetContext,
-                        ).copyWith(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
+    return Container(
+      decoration: CommunityDesign.overlayDecoration(
+        colorScheme,
+      ).copyWith(borderRadius: BorderRadius.circular(_cardRadius)),
+      padding: const EdgeInsets.all(_cardPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(AppIcons.warningAmber, color: laranja, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Cadastro $percentage% preenchido',
+                  style: CommunityDesign.titleStyle(context).copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: laranja,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                if (missing.isEmpty)
-                  const Text(
-                    'Todas as informações obrigatórias foram preenchidas.',
-                  )
-                else
-                  ...missing.map(
-                    (label) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.radio_button_unchecked,
-                            size: 18,
-                            color: colorScheme.outline,
-                          ),
-                          const SizedBox(width: 10),
-                          Text(label, style: const TextStyle(fontSize: 15)),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (missing.isNotEmpty && canEdit) ...[
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.pop(sheetContext);
-                        context.push('/members/$_memberId/edit');
-                      },
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Completar Cadastro'),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 8),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: percentage / 100,
+            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.10),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFF39C12)),
+            borderRadius: BorderRadius.circular(999),
+            minHeight: 8,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            canEdit ? 'Toque no que falta para preencher:' : 'Falta preencher:',
+            style: CommunityDesign.metaStyle(context).copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final c in missing)
+                canEdit
+                    ? ActionChip(
+                        key: ValueKey('pendencia-${c.campo}'),
+                        shape: const StadiumBorder(),
+                        avatar: const Icon(Icons.add, size: 16),
+                        label: Text(c.rotulo),
+                        onPressed: () => c.secao == 'photo'
+                            ? _showPhotoOptions(context, member.id)
+                            : context.push(
+                                '/members/${member.id}/edit'
+                                '?section=${c.secao}&field=${c.campo}',
+                              ),
+                      )
+                    : Chip(
+                        key: ValueKey('pendencia-${c.campo}'),
+                        shape: const StadiumBorder(),
+                        label: Text(c.rotulo),
+                      ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2853,95 +2796,6 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
             ),
           ),
         ],
-      ],
-    );
-  }
-
-  Widget _buildCompletionStatus(BuildContext context, Member member) {
-    final percentage = _completionPercentage(member);
-    final isComplete = percentage == 100;
-
-    return Column(
-      children: [
-        if (!isComplete) ...[
-          InkWell(
-            borderRadius: BorderRadius.circular(_cardRadius),
-            onTap: () => _showMissingFieldsSheet(context, member),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE67E22).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(_cardRadius),
-                border: Border.all(
-                  color: const Color(0xFFE67E22).withValues(alpha: 0.25),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.warning_amber,
-                    color: Color(0xFFE67E22), // Laranja forte
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Cadastro Incompleto',
-                      style: CommunityDesign.titleStyle(context).copyWith(
-                        color: const Color(0xFFE67E22),
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: const Color(0xFFE67E22).withValues(alpha: 0.7),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '$percentage% Preenchido',
-              style: CommunityDesign.metaStyle(context).copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
-              ),
-            ),
-            if (isComplete)
-              const Icon(Icons.check_circle, color: Colors.green, size: 20),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: percentage / 100,
-          backgroundColor: Theme.of(
-            context,
-          ).colorScheme.onSurface.withValues(alpha: 0.10),
-          valueColor: const AlwaysStoppedAnimation<Color>(
-            Color(0xFFF39C12), // Laranja vibrante
-          ),
-          borderRadius: BorderRadius.circular(999),
-          minHeight: 8,
-        ),
-        const SizedBox(height: 12),
-        Center(
-          child: Text(
-            isComplete
-                ? 'Todas as informações obrigatórias foram preenchidas.'
-                : 'Algumas informações ainda precisam ser preenchidas.',
-            style: CommunityDesign.metaStyle(context).copyWith(fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-        ),
       ],
     );
   }

@@ -10,6 +10,7 @@ import 'package:church360_app/features/permissions/providers/permissions_provide
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -64,10 +65,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ana Souza'), findsOneWidget);
-    // 4 seções: o QR com o ID puro do membro saiu do perfil (QR E1, 19/10).
-    expect(find.byType(GlassCard), findsAtLeastNWidgets(4));
+    // 3 seções: o QR saiu do perfil (QR E1, 19/10) e "Pendências do
+    // Cadastro" virou o card sempre aberto do topo (22/10).
+    expect(find.byType(GlassCard), findsAtLeastNWidgets(3));
     expect(find.byIcon(AppIcons.back), findsOneWidget);
     expect(find.byIcon(AppIcons.expand), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('pendência do cadastro é link direto para o campo', (
+    tester,
+  ) async {
+    String? destino;
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) =>
+              const MemberProfileScreen(memberId: 'member-visual-1'),
+        ),
+        GoRoute(
+          path: '/members/:id/edit',
+          builder: (_, state) {
+            destino = state.uri.toString();
+            return const SizedBox();
+          },
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          memberByIdProvider(
+            'member-visual-1',
+          ).overrideWith((ref) async => _member()),
+          currentMemberProvider.overrideWith((ref) async => null),
+          familyRelationshipsStreamProvider(
+            'member-visual-1',
+          ).overrideWith((ref) => Stream.value(const [])),
+          currentUserHasPermissionProvider.overrideWith(
+            (ref, permission) async => permission == 'members.edit',
+          ),
+        ],
+        child: MaterialApp.router(
+          theme: AppTheme.lightTheme,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Membresia e conversão saíram da régua (22/10/2026).
+    expect(find.text('Data de Membresia'), findsNothing);
+    final cpf = find.byKey(const ValueKey('pendencia-cpf'));
+    expect(cpf, findsOneWidget);
+    await tester.ensureVisible(cpf);
+    await tester.tap(cpf);
+    await tester.pumpAndSettle();
+
+    expect(destino, '/members/member-visual-1/edit?section=personal&field=cpf');
   });
 
   testWidgets('formulário de membro agrupa seções em GlassCard', (

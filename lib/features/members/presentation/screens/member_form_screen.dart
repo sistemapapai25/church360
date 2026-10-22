@@ -38,12 +38,19 @@ class MemberFormScreen extends ConsumerStatefulWidget {
   /// ligar a criança a quem está cadastrando.
   final bool kidsByStaff;
 
+  /// Link de pendência do perfil (`?section=address&field=zip_code`): abre a
+  /// seção e rola até o campo que falta.
+  final String? initialSection;
+  final String? initialField;
+
   const MemberFormScreen({
     super.key,
     this.memberId,
     this.initialStatus,
     this.initialMemberType,
     this.kidsByStaff = false,
+    this.initialSection,
+    this.initialField,
   });
 
   @override
@@ -57,6 +64,12 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
   /// (Permissões do Cargo): recolhidas por padrão, cada uma lembra se o
   /// usuário abriu enquanto a tela estiver montada.
   final Set<String> _expandedFormSections = {};
+
+  /// Âncoras dos campos que contam na completude do cadastro, para o link
+  /// de pendência chegar direto no campo.
+  final Map<String, GlobalKey> _campoKeys = {};
+  GlobalKey _campo(String campo) =>
+      _campoKeys.putIfAbsent(campo, () => GlobalKey(debugLabel: campo));
 
   // Controllers
   final _firstNameController = TextEditingController();
@@ -199,6 +212,9 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     if (widget.memberId == null &&
         (_memberType == null || _memberType!.trim().isEmpty)) {
       _memberType = _status == 'visitor' ? 'visitante' : 'membro';
+    }
+    if (widget.initialSection != null) {
+      _expandedFormSections.add(widget.initialSection!);
     }
     _professionController.addListener(_handleProfessionChanged);
     _professionFocusNode.addListener(() {
@@ -522,8 +538,36 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+        _irParaCampoInicial();
       }
     }
+  }
+
+  /// Espera o formulário aparecer e a seção abrir (crossfade de 200ms), rola
+  /// até o campo do link e, se for de texto, já põe o cursor nele.
+  void _irParaCampoInicial() {
+    final campo = widget.initialField;
+    if (campo == null) return;
+    Future.delayed(const Duration(milliseconds: 250), () {
+      final alvo = _campoKeys[campo]?.currentContext;
+      if (!mounted || alvo == null || !alvo.mounted) return;
+      Scrollable.ensureVisible(
+        alvo,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      void focar(Element e) {
+        final w = e.widget;
+        if (w is EditableText) {
+          if (!w.readOnly) w.focusNode.requestFocus();
+          return;
+        }
+        e.visitChildren(focar);
+      }
+
+      (alvo as Element).visitChildren(focar);
+    });
   }
 
   /// Carrega o vínculo de responsável (pai/mãe/tutor) já existente para este
@@ -1547,6 +1591,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       icon: AppIcons.badge,
                       children: [
                         TextFormField(
+                          key: _campo('first_name'),
                           controller: _firstNameController,
                           decoration: InputDecoration(
                             labelText: 'Primeiro Nome *',
@@ -1567,6 +1612,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         const SizedBox(height: 16),
 
                         TextFormField(
+                          key: _campo('last_name'),
                           controller: _lastNameController,
                           decoration: InputDecoration(
                             labelText: 'Sobrenome *',
@@ -1588,6 +1634,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Apelido
                         TextFormField(
+                          key: _campo('nickname'),
                           controller: _nicknameController,
                           decoration: InputDecoration(
                             labelText: 'Apelido',
@@ -1602,6 +1649,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         const SizedBox(height: 16),
 
                         TextFormField(
+                          key: _campo('email'),
                           controller: _emailController,
                           decoration: InputDecoration(
                             labelText: _isEmailRequired
@@ -1631,6 +1679,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                         const SizedBox(height: 16),
 
                         TextFormField(
+                          key: _campo('phone'),
                           controller: _phoneController,
                           decoration: InputDecoration(
                             labelText: 'Telefone',
@@ -1653,6 +1702,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             });
                           }),
                           child: InputDecorator(
+                            key: _campo('birthdate'),
                             decoration: InputDecoration(
                               labelText: 'Data de Nascimento',
                               filled: true,
@@ -1682,6 +1732,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Gênero
                         DropdownButtonFormField<String>(
+                          key: _campo('gender'),
                           initialValue: _gender,
                           decoration: InputDecoration(
                             labelText: 'Gênero',
@@ -1716,6 +1767,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // CPF
                         TextFormField(
+                          key: _campo('cpf'),
                           controller: _cpfController,
                           decoration: InputDecoration(
                             labelText: 'CPF',
@@ -1742,6 +1794,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Estado Civil
                         DropdownButtonFormField<String>(
+                          key: _campo('marital_status'),
                           initialValue: _maritalStatus,
                           decoration: InputDecoration(
                             labelText: 'Estado Civil',
@@ -1788,6 +1841,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                   });
                                 }),
                             child: InputDecorator(
+                              key: _campo('marriage_date'),
                               decoration: InputDecoration(
                                 labelText: 'Data de Casamento',
                                 filled: true,
@@ -1816,6 +1870,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Profissão
                         TextFormField(
+                          key: _campo('profession'),
                           controller: _professionController,
                           focusNode: _professionFocusNode,
                           decoration: InputDecoration(
@@ -1875,6 +1930,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                       children: [
                         // CEP
                         TextFormField(
+                          key: _campo('zip_code'),
                           controller: _zipCodeController,
                           decoration: InputDecoration(
                             labelText: 'CEP',
@@ -1918,6 +1974,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Complemento
                         TextFormField(
+                          key: _campo('address_complement'),
                           controller: _addressComplementController,
                           decoration: InputDecoration(
                             labelText: 'Complemento',
@@ -1934,6 +1991,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Endereço
                         TextFormField(
+                          key: _campo('address'),
                           controller: _addressController,
                           decoration: InputDecoration(
                             labelText: 'Endereço',
@@ -1949,6 +2007,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Bairro
                         TextFormField(
+                          key: _campo('neighborhood'),
                           controller: _neighborhoodController,
                           decoration: InputDecoration(
                             labelText: 'Bairro',
@@ -1964,6 +2023,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Cidade
                         TextFormField(
+                          key: _campo('city'),
                           controller: _cityController,
                           decoration: InputDecoration(
                             labelText: 'Cidade',
@@ -1979,6 +2039,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Estado
                         TextFormField(
+                          key: _campo('state'),
                           controller: _stateController,
                           decoration: InputDecoration(
                             labelText: 'Estado',
@@ -2182,6 +2243,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                                 });
                               }),
                           child: InputDecorator(
+                            key: _campo('baptism_date'),
                             decoration: InputDecoration(
                               labelText: 'Data de Batismo',
                               filled: true,

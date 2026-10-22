@@ -90,6 +90,8 @@ class DuplicateGroup {
         'cpf' => 'Mesmo CPF',
         'telefone' => 'Mesmo telefone',
         'email' => 'Mesmo e-mail',
+        'nome+nascimento' => 'Mesmo nome e nascimento',
+        'nome' => 'Mesmo nome',
         _ => motivo,
       };
 
