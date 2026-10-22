@@ -40,9 +40,23 @@ class OAuthAllowedClient {
   });
 }
 
-/// Preenchida somente quando o client for cadastrado no Supabase (Fase 1,
-/// passo manual no painel). Vazia = nenhum aplicativo pode usar o login.
-const List<OAuthAllowedClient> kOAuthAllowedClients = <OAuthAllowedClient>[];
+/// Cada entrada corresponde a um client cadastrado no painel do Supabase
+/// (Authentication → OAuth Apps) e revisado aqui. Lista vazia = nenhum
+/// aplicativo pode usar o login.
+const List<OAuthAllowedClient> kOAuthAllowedClients = <OAuthAllowedClient>[
+  // Lider360 (teste) — client confidential do MVP do login único, cadastrado
+  // em 23/10/2026. Sem escopo pedido; `email` tolerado caso o servidor o
+  // atribua por padrão. O client de produção entra numa entrada própria.
+  OAuthAllowedClient(
+    clientId: 'd8e86d80-0a75-4fa2-ae2e-23c40a7f26ef',
+    displayName: 'Lider360',
+    redirectUris: [
+      'http://localhost:3000/auth/church360/callback',
+      'https://gestao-lideres-git-sso-church360-ap-bergs-projects.vercel.app/auth/church360/callback',
+    ],
+    allowedScopes: {'email'},
+  ),
+];
 
 /// Formato aceito para o `authorization_id` antes de ele entrar na URL da API.
 /// O valor vem da barra de endereço; validar o charset impede que alguém
@@ -63,16 +77,16 @@ OAuthAllowedClient? findAllowedClient(
   return null;
 }
 
-/// `openid` é obrigatório (o Lider360 precisa do ID token) e nenhum escopo
-/// fora da lista do client é aceito, em especial `offline_access`: o Lider360
+/// Todo escopo pedido precisa estar na lista do client; pedir nenhum escopo é
+/// aceito (no MVP o Lider360 só confirma a identidade e não usa ID token).
+/// `offline_access` é recusado sempre, mesmo que entre na lista: o Lider360
 /// não deve receber refresh token do Church360.
 bool scopesAllowed(String? scope, OAuthAllowedClient client) {
-  if (scope == null) return false;
-  final requested = scope
+  final requested = (scope ?? '')
       .split(RegExp(r'\s+'))
       .where((s) => s.isNotEmpty)
       .toSet();
-  if (!requested.contains('openid')) return false;
+  if (requested.contains('offline_access')) return false;
   return requested.every(client.allowedScopes.contains);
 }
 
