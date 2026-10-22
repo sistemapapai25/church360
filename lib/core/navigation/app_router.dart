@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
+import '../../features/oauth_consent/presentation/oauth_consent_screen.dart';
 import '../../features/auth/presentation/screens/change_password_screen.dart';
 import 'initial_app_location.dart';
 import '../../features/members/presentation/screens/members_list_screen.dart';
@@ -394,6 +395,15 @@ final appRouter = GoRouter(
     GoRoute(path: '/', redirect: (_, state) => rootRedirect(state.uri)),
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+    // Consentimento do login único (OAuth 2.1 / OIDC). Protegida como as
+    // demais: sem sessão, o guard acima manda para o login preservando a URL
+    // inteira, inclusive o `authorization_id`.
+    GoRoute(
+      path: '/oauth/consent',
+      builder: (context, state) => OAuthConsentScreen(
+        authorizationId: state.uri.queryParameters['authorization_id'],
+      ),
+    ),
     GoRoute(path: '/signup', builder: (context, state) => const SignUpScreen()),
     GoRoute(
       path: '/reset-password',

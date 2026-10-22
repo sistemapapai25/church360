@@ -125,8 +125,12 @@ class _AppBootstrapState extends State<AppBootstrap> {
       // voltar existir (e levar à Home). Sem sessão, o redirect do login
       // cuida do caminho.
       final path = Uri.tryParse(startupLocation)?.path ?? '';
+      // O consentimento OAuth abre sozinho: empilhá-lo sobre a Home carregaria
+      // a Home inteira à toa e deixaria um voltar para dentro do Church360 no
+      // meio de um login que deve terminar no outro aplicativo.
       if (user != null &&
           path != '/home' &&
+          path != '/oauth/consent' &&
           safeRedirect(startupLocation) != null) {
         _abrirSobreAHome(startupLocation);
       } else {
