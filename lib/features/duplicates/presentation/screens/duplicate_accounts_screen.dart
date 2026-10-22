@@ -699,6 +699,7 @@ IconData _iconeDoMotivo(String motivo) => switch (motivo) {
       'cpf' => Icons.badge_outlined,
       'telefone' => Icons.phone,
       'email' => Icons.mail_outline,
+      'nome' || 'nome+nascimento' => Icons.person_search_outlined,
       _ => Icons.people_outline,
     };
 

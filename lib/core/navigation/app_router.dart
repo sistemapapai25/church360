@@ -536,9 +536,14 @@ final appRouter = GoRouter(
       path: '/members/:id/edit',
       builder: (context, state) {
         final id = state.pathParameters['id']!;
+        final query = state.uri.queryParameters;
         return MemberEditRoute(
           memberId: id,
-          child: MemberFormScreen(memberId: id),
+          child: MemberFormScreen(
+            memberId: id,
+            initialSection: query['section'],
+            initialField: query['field'],
+          ),
         );
       },
     ),
