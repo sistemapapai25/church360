@@ -1961,6 +1961,8 @@ class _MemberProfileScreenState extends ConsumerState<MemberProfileScreen> {
   /// `/members/:id/edit?section=&field=`). "Notas/observações" é campo livre
   /// e não entra. Datas de membresia e de conversão saíram da régua em
   /// 22/10/2026 (decisão do usuário): quase ninguém sabe informar.
+  /// O Moisés usa a mesma régua (COMPLETION_FIELDS em
+  /// supabase/functions/support-chat/my-data.ts): mudou aqui, muda lá.
   List<({String rotulo, bool ok, String secao, String campo})>
   _completionFields(Member member) {
     ({String rotulo, bool ok, String secao, String campo}) f(

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
@@ -2139,7 +2140,15 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                             )).toList(),
                           ),
                         ),
-                      if (!audioOnly)
+                      // Resposta do agente vem em markdown (**negrito**, listas).
+                      if (!audioOnly && !isUser && !human)
+                        MarkdownBody(
+                          data: msg['content'] as String,
+                          styleSheet: MarkdownStyleSheet(
+                            p: const TextStyle(color: Color(0xFF1F2937), fontSize: 14),
+                          ),
+                        )
+                      else if (!audioOnly)
                         Text(
                           // O nome do atendente já vai em cima da bolha.
                           human ? (msg['content'] as String).substring(_humanPrefix.length) : msg['content'] as String,

@@ -2305,7 +2305,11 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
 
                         // Tipo de Membro — apenas líder/pastor/admin
                         if (canEditEcclesiasticalInfo) ...[
-                          DropdownButtonFormField<String>(
+                          // A ValueKey recria o dropdown ao trocar o tipo; a
+                          // âncora do link fica num KeyedSubtree por fora.
+                          KeyedSubtree(
+                            key: _campo('member_type'),
+                            child: DropdownButtonFormField<String>(
                             key: ValueKey(_memberType),
                             initialValue: _memberType,
                             decoration: InputDecoration(
@@ -2321,6 +2325,7 @@ class _MemberFormScreenState extends ConsumerState<MemberFormScreen> {
                             onChanged: (value) {
                               _handleMemberTypeChanged(value);
                             },
+                          ),
                           ),
                           const SizedBox(height: 24),
                         ],
