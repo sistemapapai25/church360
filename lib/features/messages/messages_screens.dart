@@ -1,12 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/errors/app_error_handler.dart';
+import '../support_chat/presentation/widgets/audio_message_bubble.dart';
 
 /// K9 — Mensagens internas (supabase 20261008009600).
 ///
@@ -17,7 +25,44 @@ import '../../core/errors/app_error_handler.dart';
 ///   o líder do ministério tira e devolve pessoas;
 /// - chamar um 3º num direct cria um grupo novo (como no Insta).
 /// Sem tempo real: a conversa aberta consulta a cada 5 s, como o suporte.
+///
+/// Cache no celular (supabase 20261023000100): a lista e cada conversa ficam
+/// guardadas por usuário; a conversa abre do cache e só pede ao banco o que
+/// chegou depois da última mensagem. Áudio no bucket msg-audio, baixado uma
+/// vez só por aparelho.
 SupabaseClient get _db => Supabase.instance.client;
+
+const _pageSize = 200;
+
+String _cacheKey(String what) => 'msg:${_db.auth.currentUser?.id}:$what';
+
+Future<dynamic> _readCache(String what) async {
+  try {
+    final raw = (await SharedPreferences.getInstance()).getString(
+      _cacheKey(what),
+    );
+    return raw == null ? null : jsonDecode(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _writeCache(String what, Object? value) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    value == null
+        ? await prefs.remove(_cacheKey(what))
+        : await prefs.setString(_cacheKey(what), jsonEncode(value));
+  } catch (_) {}
+}
+
+/// App em segundo plano não consulta o banco.
+bool get _appVisible {
+  final s = WidgetsBinding.instance.lifecycleState;
+  return s == null ||
+      s == AppLifecycleState.resumed ||
+      s == AppLifecycleState.inactive;
+}
 
 /// Mostra "Mensagens" na aba Mais: líder pra cima ou quem já está em algum
 /// grupo de ministério.
@@ -67,12 +112,19 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
   @override
   void initState() {
     super.initState();
+    _readCache('list').then((cached) {
+      if (cached is List && mounted && _items == null) {
+        setState(() => _items = _list(cached));
+      }
+    });
     _load();
     // Líder pra cima: msg_leaders responde; os outros recebem 42501.
     _db.rpc('msg_leaders').then((_) {
       if (mounted) setState(() => _isLeader = true);
     }, onError: (_) {});
-    _poll = Timer.periodic(const Duration(seconds: 15), (_) => _load());
+    _poll = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_appVisible) _load();
+    });
   }
 
   @override
@@ -85,6 +137,7 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
     try {
       final r = _list(await _db.rpc('msg_list'));
       if (mounted) setState(() => _items = r);
+      _writeCache('list', r);
     } catch (e) {
       if (mounted && _items == null) {
         setState(() => _items = const []);
@@ -235,46 +288,121 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Timer? _poll;
   int _lastCount = 0;
 
+  final _recorder = AudioRecorder();
+  final _player = AudioPlayer();
+  final _recLevels = <double>[];
+  StreamSubscription<Amplitude>? _ampSub;
+  DateTime? _recStartedAt;
+  bool _recording = false;
+  String? _playing;
+  Duration _pos = Duration.zero;
+  Duration _dur = Duration.zero;
+
+  /// Web não tem pasta temporária: o áudio baixado fica na memória da aba.
+  static final _webAudio = <String, Uint8List>{};
+
+  String get _convKey => 'conv:${widget.conversationId}';
+
   @override
   void initState() {
     super.initState();
-    _load();
-    _poll = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+    _player.onPositionChanged.listen((p) {
+      if (mounted) setState(() => _pos = p);
+    });
+    _player.onDurationChanged.listen((d) {
+      if (mounted) setState(() => _dur = d);
+    });
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = null);
+    });
+    _start();
+  }
+
+  Future<void> _start() async {
+    final cached = await _readCache(_convKey);
+    if (cached is Map && mounted && _conv == null) {
+      _show(Map<String, dynamic>.from(cached));
+    }
+    await _load();
+    if (!mounted) return;
+    _poll = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (_appVisible) _load();
+    });
   }
 
   @override
   void dispose() {
     _poll?.cancel();
+    _ampSub?.cancel();
+    _recorder.dispose();
+    _player.dispose();
     _text.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
+  void _show(Map<String, dynamic> conv) {
+    setState(() {
+      _conv = conv;
+      _loadError = null;
+    });
+    final count = _list(conv['messages']).length;
+    if (count != _lastCount) {
+      _lastCount = count;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) {
+          _scroll.jumpTo(_scroll.position.maxScrollExtent);
+        }
+      });
+    }
+  }
+
+  /// Com mensagens na tela, pede só as novas e junta pelo id. Vindo uma
+  /// página cheia, pode ter buraco no meio: fica só a resposta do banco.
   Future<void> _load() async {
+    final have = _conv == null ? null : _list(_conv!['messages']);
+    final after = (have == null || have.isEmpty)
+        ? null
+        : have.last['created_at'];
     try {
       final r = Map<String, dynamic>.from(
         await _db.rpc(
               'msg_open',
-              params: {'p_conversation': widget.conversationId},
+              params: {
+                'p_conversation': widget.conversationId,
+                if (after != null) 'p_after': after,
+              },
             )
             as Map,
       );
       if (!mounted) return;
-      final count = _list(r['messages']).length;
-      setState(() {
-        _conv = r;
-        _loadError = null;
-      });
-      if (count != _lastCount) {
-        _lastCount = count;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_scroll.hasClients) {
-            _scroll.jumpTo(_scroll.position.maxScrollExtent);
-          }
-        });
+      final fresh = _list(r['messages']);
+      if (after != null && fresh.length < _pageSize) {
+        final seen = have!.map((m) => m['id']).toSet();
+        final all = [...have, ...fresh.where((m) => !seen.contains(m['id']))]
+          ..sort(
+            (a, b) => DateTime.parse(
+              '${a['created_at']}',
+            ).compareTo(DateTime.parse('${b['created_at']}')),
+          );
+        r['messages'] = all.length > _pageSize
+            ? all.sublist(all.length - _pageSize)
+            : all;
       }
+      _show(r);
+      _writeCache(_convKey, r);
     } catch (e) {
-      if (mounted && _conv == null) setState(() => _loadError = e);
+      if (!mounted) return;
+      // Saiu ou foi tirado da conversa: o cache some do aparelho.
+      if (e is PostgrestException && e.code == 'P0002') {
+        _writeCache(_convKey, null);
+        setState(() {
+          _conv = null;
+          _loadError = e;
+        });
+      } else if (_conv == null) {
+        setState(() => _loadError = e);
+      }
     }
   }
 
@@ -294,6 +422,197 @@ class _ConversationScreenState extends State<ConversationScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  File _audioFile(String path) => File(
+    '${Directory.systemTemp.path}${Platform.pathSeparator}'
+    'msg-audio-${path.replaceAll('/', '_')}',
+  );
+
+  Future<void> _keepAudio(String path, Uint8List bytes) async {
+    if (kIsWeb) {
+      _webAudio[path] = bytes;
+    } else {
+      await _audioFile(path).writeAsBytes(bytes, flush: true);
+    }
+  }
+
+  /// Baixa do bucket uma vez só; depois toca do aparelho.
+  Future<Source> _audioSource(String path) async {
+    if (!kIsWeb && await _audioFile(path).exists()) {
+      return DeviceFileSource(_audioFile(path).path);
+    }
+    final bytes =
+        _webAudio[path] ?? await _db.storage.from('msg-audio').download(path);
+    await _keepAudio(path, bytes);
+    if (!kIsWeb) return DeviceFileSource(_audioFile(path).path);
+    // audioplayers_web não toca BytesSource: vira data URI.
+    final mime = path.endsWith('.wav') ? 'audio/wav' : 'audio/mp4';
+    return UrlSource(Uri.dataFromBytes(bytes, mimeType: mime).toString());
+  }
+
+  Future<void> _togglePlay(String path) async {
+    try {
+      await _player.stop();
+      if (_playing == path) {
+        setState(() => _playing = null);
+        return;
+      }
+      setState(() {
+        _playing = path;
+        _pos = Duration.zero;
+        _dur = Duration.zero;
+      });
+      await _player.play(await _audioSource(path));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _playing = null);
+      _showError(context, e);
+    }
+  }
+
+  Future<void> _startRecording() async {
+    if (_sending) return;
+    if (!await _recorder.hasPermission()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Permissão de microfone negada.')),
+      );
+      return;
+    }
+    try {
+      await _player.stop();
+      if (kIsWeb) {
+        await _recorder.start(
+          const RecordConfig(encoder: AudioEncoder.wav),
+          path: '',
+        );
+      } else {
+        await _recorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
+          path:
+              '${Directory.systemTemp.path}${Platform.pathSeparator}'
+              'msg_rec_${DateTime.now().millisecondsSinceEpoch}.m4a',
+        );
+      }
+      _recLevels.clear();
+      _recStartedAt = DateTime.now();
+      _ampSub = _recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 100))
+          .listen((a) {
+            _recLevels.add(a.current);
+            if (mounted) setState(() {});
+          }, onError: (_) {});
+      if (mounted) setState(() => _recording = true);
+    } catch (e) {
+      if (mounted) _showError(context, e);
+    }
+  }
+
+  /// [send] falso = descarta a gravação.
+  Future<void> _stopRecording({required bool send}) async {
+    await _ampSub?.cancel();
+    _ampSub = null;
+    final ms = DateTime.now()
+        .difference(_recStartedAt ?? DateTime.now())
+        .inMilliseconds;
+    String? recorded;
+    try {
+      recorded = await _recorder.stop();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _recording = false);
+    // Menos de 1 s é toque sem querer.
+    if (!send || recorded == null || recorded.isEmpty || ms < 1000) return;
+
+    setState(() => _sending = true);
+    try {
+      final Uint8List bytes;
+      if (kIsWeb) {
+        bytes = (await http.get(Uri.parse(recorded))).bodyBytes;
+      } else {
+        final f = File(recorded);
+        bytes = await f.readAsBytes();
+        unawaited(f.delete().then((_) {}, onError: (_) {}));
+      }
+      final path =
+          '${widget.conversationId}/${DateTime.now().microsecondsSinceEpoch}'
+          '.${kIsWeb ? 'wav' : 'm4a'}';
+      await _db.storage
+          .from('msg-audio')
+          .uploadBinary(
+            path,
+            bytes,
+            fileOptions: FileOptions(
+              contentType: kIsWeb ? 'audio/wav' : 'audio/mp4',
+            ),
+          );
+      await _keepAudio(path, bytes);
+      await _db.rpc(
+        'msg_send',
+        params: {
+          'p_conversation': widget.conversationId,
+          'p_content': '',
+          'p_audio_path': path,
+          'p_audio_ms': ms,
+          'p_audio_levels': waveformBars(_recLevels),
+        },
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) _showError(context, e);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Widget _audioMessage(Map<String, dynamic> m, bool mine, bool showAuthor) {
+    final cs = Theme.of(context).colorScheme;
+    final path = '${m['audio_path']}';
+    final levels = (m['audio_levels'] as List?)
+        ?.map((v) => (v as num).toDouble())
+        .toList();
+    final playing = _playing == path;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Column(
+        crossAxisAlignment: mine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          if (showAuthor && !mine)
+            Text(
+              '${m['author_name']}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: cs.primary,
+              ),
+            ),
+          AudioMessageBubble(
+            isUser: mine,
+            accent: cs.primary,
+            bars: levels == null || levels.isEmpty
+                ? List.filled(32, 0.4)
+                : levels,
+            durationMs: (m['audio_ms'] as num?)?.toInt() ?? 0,
+            progress: playing && _dur.inMilliseconds > 0
+                ? _pos.inMilliseconds / _dur.inMilliseconds
+                : 0,
+            isPlaying: playing,
+            avatar: ColoredBox(
+              color: cs.primaryContainer,
+              child: Icon(Icons.person, size: 20, color: cs.onPrimaryContainer),
+            ),
+            onToggle: () => _togglePlay(path),
+          ),
+          Text(
+            _when(m['created_at'] as String?),
+            style: Theme.of(context).textTheme.labelSmall,
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _add() async {
@@ -501,6 +820,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       itemBuilder: (context, i) {
                         final m = messages[i];
                         final mine = m['mine'] == true;
+                        if (m['audio_path'] != null) {
+                          return Align(
+                            alignment: mine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            child: _audioMessage(m, mine, showAuthor),
+                          );
+                        }
                         return Align(
                           alignment: mine
                               ? Alignment.centerRight
@@ -552,36 +879,71 @@ class _ConversationScreenState extends State<ConversationScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _text,
-                      minLines: 1,
-                      maxLines: 5,
-                      maxLength: 4000,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        hintText: 'Escreva uma mensagem',
-                        counterText: '',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(24)),
+              child: _recording
+                  ? Row(
+                      children: [
+                        IconButton(
+                          tooltip: 'Descartar áudio',
+                          onPressed: () => _stopRecording(send: false),
+                          icon: const Icon(Icons.delete_outline),
                         ),
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
+                        Icon(Icons.fiber_manual_record, color: cs.error),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Gravando ${formatAudioDuration(DateTime.now().difference(_recStartedAt ?? DateTime.now()).inMilliseconds)}',
+                          ),
                         ),
-                      ),
+                        IconButton.filled(
+                          tooltip: 'Enviar áudio',
+                          onPressed: () => _stopRecording(send: true),
+                          icon: const Icon(Icons.send),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _text,
+                            minLines: 1,
+                            maxLines: 5,
+                            maxLength: 4000,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              hintText: 'Escreva uma mensagem',
+                              counterText: '',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(24),
+                                ),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Campo vazio: microfone, como no chat do Moisés.
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _text,
+                          builder: (context, value, _) =>
+                              value.text.trim().isEmpty
+                              ? IconButton.filled(
+                                  tooltip: 'Gravar áudio',
+                                  onPressed: _sending ? null : _startRecording,
+                                  icon: const Icon(Icons.mic),
+                                )
+                              : IconButton.filled(
+                                  tooltip: 'Enviar',
+                                  onPressed: _sending ? null : _send,
+                                  icon: const Icon(Icons.send),
+                                ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton.filled(
-                    tooltip: 'Enviar',
-                    onPressed: _sending ? null : _send,
-                    icon: const Icon(Icons.send),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
