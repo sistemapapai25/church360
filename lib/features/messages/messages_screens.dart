@@ -6,6 +6,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -83,6 +84,42 @@ void _showError(BuildContext context, Object e) {
     SnackBar(
       content: Text(AppErrorHandler.userMessage(e, feature: 'messages')),
       backgroundColor: Theme.of(context).colorScheme.error,
+    ),
+  );
+}
+
+/// Foto da pessoa; sem foto (ou se não carregar), a inicial do nome.
+Widget _personAvatar(
+  BuildContext context,
+  String? photo,
+  String? name,
+  double size,
+) {
+  final cs = Theme.of(context).colorScheme;
+  final n = (name ?? '').trim();
+  final initial = Container(
+    color: cs.primary,
+    alignment: Alignment.center,
+    child: Text(
+      n.isEmpty ? '?' : n.characters.first.toUpperCase(),
+      style: TextStyle(
+        color: cs.onPrimary,
+        fontWeight: FontWeight.w700,
+        fontSize: size * 0.4,
+      ),
+    ),
+  );
+  return SizedBox(
+    width: size,
+    height: size,
+    child: ClipOval(
+      child: photo == null || photo.isEmpty
+          ? initial
+          : Image.network(
+              photo,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => initial,
+            ),
     ),
   );
 }
@@ -212,17 +249,22 @@ class _MessagesListScreenState extends State<MessagesListScreen> {
                   final unread = c['unread'] == true;
                   final last = c['last_text'] as String?;
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: cs.primaryContainer,
-                      child: Icon(
-                        kind == 'direct'
-                            ? Icons.person_outline
-                            : kind.startsWith('ministry')
-                            ? Icons.groups_outlined
-                            : Icons.forum_outlined,
-                        color: cs.onPrimaryContainer,
-                      ),
-                    ),
+                    leading: kind == 'direct'
+                        ? _personAvatar(
+                            context,
+                            c['photo_url'] as String?,
+                            c['title'] as String?,
+                            40,
+                          )
+                        : CircleAvatar(
+                            backgroundColor: cs.primaryContainer,
+                            child: Icon(
+                              kind.startsWith('ministry')
+                                  ? Icons.groups_outlined
+                                  : Icons.forum_outlined,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          ),
                     title: Text(
                       c['title'] as String? ?? 'Conversa',
                       maxLines: 1,
@@ -298,6 +340,10 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Duration _pos = Duration.zero;
   Duration _dur = Duration.zero;
 
+  /// "Ouvir" do chat do Moisés: lê a mensagem de texto com a voz do aparelho.
+  final _tts = FlutterTts();
+  String? _speaking;
+
   /// Web não tem pasta temporária: o áudio baixado fica na memória da aba.
   static final _webAudio = <String, Uint8List>{};
 
@@ -315,6 +361,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _player.onPlayerComplete.listen((_) {
       if (mounted) setState(() => _playing = null);
     });
+    void stopSpeaking() {
+      if (mounted && _speaking != null) setState(() => _speaking = null);
+    }
+
+    _tts.setLanguage('pt-BR');
+    _tts.setCompletionHandler(stopSpeaking);
+    _tts.setCancelHandler(stopSpeaking);
     _start();
   }
 
@@ -336,6 +389,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _ampSub?.cancel();
     _recorder.dispose();
     _player.dispose();
+    _tts.stop();
     _text.dispose();
     _scroll.dispose();
     super.dispose();
@@ -454,6 +508,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _togglePlay(String path) async {
     try {
       await _player.stop();
+      if (_speaking != null) await _tts.stop();
       if (_playing == path) {
         setState(() => _playing = null);
         return;
@@ -566,50 +621,168 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
   }
 
-  Widget _audioMessage(Map<String, dynamic> m, bool mine, bool showAuthor) {
+  /// Botão redondo de 48 na cor de destaque (enviar/microfone do Moisés).
+  Widget _roundButton({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
     final cs = Theme.of(context).colorScheme;
-    final path = '${m['audio_path']}';
-    final levels = (m['audio_levels'] as List?)
-        ?.map((v) => (v as num).toDouble())
-        .toList();
-    final playing = _playing == path;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Column(
-        crossAxisAlignment: mine
-            ? CrossAxisAlignment.end
-            : CrossAxisAlignment.start,
-        children: [
-          if (showAuthor && !mine)
-            Text(
-              '${m['author_name']}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: cs.primary,
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: EdgeInsets.zero,
+            backgroundColor: cs.primary,
+            foregroundColor: cs.onPrimary,
+          ),
+          onPressed: onPressed,
+          child: _sending
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: cs.onPrimary,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Icon(icon, size: 22),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleSpeak(Map<String, dynamic> m) async {
+    final id = '${m['id']}';
+    final again = _speaking == id;
+    await _player.stop();
+    await _tts.stop();
+    if (!mounted) return;
+    setState(() {
+      _playing = null;
+      _speaking = again ? null : id;
+    });
+    if (!again) await _tts.speak('${m['content']}');
+  }
+
+  /// Mesma estrutura da bolha do chat do Moisés: foto e nome de quem
+  /// mandou à esquerda, a minha na cor de destaque à direita, hora embaixo
+  /// e "Ouvir" nas mensagens de texto dos outros.
+  Widget _messageItem(Map<String, dynamic> m) {
+    final cs = Theme.of(context).colorScheme;
+    final mine = m['mine'] == true;
+    final photo = m['author_photo'] as String?;
+    final name = m['author_name'] as String?;
+    final audioPath = m['audio_path'] as String?;
+    final Widget body;
+    if (audioPath != null) {
+      final levels = (m['audio_levels'] as List?)
+          ?.map((v) => (v as num).toDouble())
+          .toList();
+      final playing = _playing == audioPath;
+      // Só áudio: a bolha do áudio já é o card, como no Moisés.
+      body = AudioMessageBubble(
+        isUser: mine,
+        accent: cs.primary,
+        bars: levels == null || levels.isEmpty ? List.filled(32, 0.4) : levels,
+        durationMs: (m['audio_ms'] as num?)?.toInt() ?? 0,
+        progress: playing && _dur.inMilliseconds > 0
+            ? _pos.inMilliseconds / _dur.inMilliseconds
+            : 0,
+        isPlaying: playing,
+        avatar: _personAvatar(context, photo, name, 32),
+        onToggle: () => _togglePlay(audioPath),
+      );
+    } else {
+      body = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: mine ? cs.primary : Colors.white,
+          borderRadius: BorderRadius.circular(12).copyWith(
+            topLeft: mine ? const Radius.circular(12) : Radius.zero,
+            topRight: mine ? Radius.zero : const Radius.circular(12),
+          ),
+          boxShadow: [
+            if (!mine)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
-            ),
-          AudioMessageBubble(
-            isUser: mine,
-            accent: cs.primary,
-            bars: levels == null || levels.isEmpty
-                ? List.filled(32, 0.4)
-                : levels,
-            durationMs: (m['audio_ms'] as num?)?.toInt() ?? 0,
-            progress: playing && _dur.inMilliseconds > 0
-                ? _pos.inMilliseconds / _dur.inMilliseconds
-                : 0,
-            isPlaying: playing,
-            avatar: ColoredBox(
-              color: cs.primaryContainer,
-              child: Icon(Icons.person, size: 20, color: cs.onPrimaryContainer),
-            ),
-            onToggle: () => _togglePlay(path),
+          ],
+        ),
+        child: SelectableText(
+          '${m['content']}',
+          style: TextStyle(
+            color: mine ? cs.onPrimary : const Color(0xFF1F2937),
+            fontSize: 14,
           ),
-          Text(
-            _when(m['created_at'] as String?),
-            style: Theme.of(context).textTheme.labelSmall,
+        ),
+      );
+    }
+    final speaking = _speaking == '${m['id']}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: mine
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!mine) ...[
+            _personAvatar(context, photo, name, 36),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: mine
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                if (!mine)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    child: Text(
+                      name ?? '',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                body,
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _when(m['created_at'] as String?),
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                    if (!mine && audioPath == null)
+                      IconButton(
+                        onPressed: () => _toggleSpeak(m),
+                        icon: Icon(
+                          speaking
+                              ? Icons.stop_circle_outlined
+                              : Icons.volume_up_outlined,
+                          size: 18,
+                          color: const Color(0xFF6B7280),
+                        ),
+                        tooltip: speaking ? 'Parar' : 'Ouvir',
+                        visualDensity: VisualDensity.compact,
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
+          if (mine) const SizedBox(width: 40),
         ],
       ),
     );
@@ -741,7 +914,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
               ),
               for (final m in members)
                 ListTile(
-                  leading: const Icon(Icons.person_outline),
+                  leading: _personAvatar(
+                    ctx,
+                    m['photo_url'] as String?,
+                    m['name'] as String?,
+                    36,
+                  ),
                   title: Text(
                     m['me'] == true ? '${m['name']} (você)' : '${m['name']}',
                   ),
@@ -789,8 +967,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
       );
     }
     final messages = _list(conv['messages']);
-    final showAuthor = conv['kind'] != 'direct';
     return Scaffold(
+      backgroundColor: const Color(0xFFF9FAFB), // fundo do chat do Moisés
       appBar: AppBar(
         title: Text(
           conv['title'] as String? ?? 'Conversa',
@@ -815,70 +993,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     )
                   : ListView.builder(
                       controller: _scroll,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       itemCount: messages.length,
-                      itemBuilder: (context, i) {
-                        final m = messages[i];
-                        final mine = m['mine'] == true;
-                        if (m['audio_path'] != null) {
-                          return Align(
-                            alignment: mine
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: _audioMessage(m, mine, showAuthor),
-                          );
-                        }
-                        return Align(
-                          alignment: mine
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 3),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            constraints: BoxConstraints(
-                              maxWidth:
-                                  MediaQuery.of(context).size.width * 0.78,
-                            ),
-                            decoration: BoxDecoration(
-                              color: mine
-                                  ? cs.primaryContainer
-                                  : cs.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (showAuthor && !mine)
-                                  Text(
-                                    '${m['author_name']}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: cs.primary,
-                                    ),
-                                  ),
-                                SelectableText('${m['content']}'),
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: Text(
-                                    _when(m['created_at'] as String?),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelSmall,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                      itemBuilder: (context, i) => _messageItem(messages[i]),
                     ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 8, 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: _recording
                   ? Row(
                       children: [
@@ -894,53 +1015,67 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             'Gravando ${formatAudioDuration(DateTime.now().difference(_recStartedAt ?? DateTime.now()).inMilliseconds)}',
                           ),
                         ),
-                        IconButton.filled(
+                        _roundButton(
                           tooltip: 'Enviar áudio',
+                          icon: Icons.send,
                           onPressed: () => _stopRecording(send: true),
-                          icon: const Icon(Icons.send),
                         ),
                       ],
                     )
                   : Row(
                       children: [
+                        // Campo em pílula branca, como no chat do Moisés.
                         Expanded(
-                          child: TextField(
-                            controller: _text,
-                            minLines: 1,
-                            maxLines: 5,
-                            maxLength: 4000,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(
-                              hintText: 'Escreva uma mensagem',
-                              counterText: '',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(24),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(32),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            child: TextField(
+                              controller: _text,
+                              minLines: 1,
+                              maxLines: 4,
+                              maxLength: 4000,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: const TextStyle(fontSize: 15),
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                                filled: true,
+                                fillColor: Colors.white,
+                                counterText: '',
+                                hintText: 'Digite sua mensagem...',
+                                hintStyle: TextStyle(
+                                  fontSize: 15,
+                                  color: Color(0xFF9CA3AF),
                                 ),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        // Campo vazio: microfone, como no chat do Moisés.
+                        const SizedBox(width: 8),
+                        // Campo vazio: microfone; com texto: enviar.
                         ValueListenableBuilder<TextEditingValue>(
                           valueListenable: _text,
-                          builder: (context, value, _) =>
-                              value.text.trim().isEmpty
-                              ? IconButton.filled(
-                                  tooltip: 'Gravar áudio',
-                                  onPressed: _sending ? null : _startRecording,
-                                  icon: const Icon(Icons.mic),
-                                )
-                              : IconButton.filled(
-                                  tooltip: 'Enviar',
-                                  onPressed: _sending ? null : _send,
-                                  icon: const Icon(Icons.send),
-                                ),
+                          builder: (context, value, _) {
+                            final empty = value.text.trim().isEmpty;
+                            return _roundButton(
+                              tooltip: empty ? 'Gravar áudio' : 'Enviar',
+                              icon: empty ? Icons.mic : Icons.send,
+                              onPressed: _sending
+                                  ? null
+                                  : empty
+                                  ? _startRecording
+                                  : _send,
+                            );
+                          },
                         ),
                       ],
                     ),
