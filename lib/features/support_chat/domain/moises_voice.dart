@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Voz do Moisés: a mesma em todo aparelho (Antonio, gerada pela edge
+/// Voz do Moisés: a mesma em todo aparelho (voz masculina gerada pela edge
 /// moises-voz). Sem internet ou com a voz fora do ar, lê com a voz do aparelho.
 /// Troca direta do FlutterTts: mesmos métodos que as telas usam.
 class MoisesVoice {
@@ -54,7 +54,7 @@ class MoisesVoice {
       final bytes = _cache[text] ??= await _fetch(text);
       if (turn != _turn) return; // parou ou trocou de mensagem enquanto baixava
       await _player.play(kIsWeb
-          ? UrlSource(Uri.dataFromBytes(bytes, mimeType: 'audio/mpeg').toString())
+          ? UrlSource(Uri.dataFromBytes(bytes, mimeType: _mime(bytes)).toString())
           : BytesSource(bytes));
     } catch (e) {
       debugPrint('moises-voz: $e; usando a voz do aparelho');
@@ -75,6 +75,10 @@ class MoisesVoice {
     _device.stop();
     _player.dispose();
   }
+
+  /// O Gemini devolve wav e a reserva da OpenAI, mp3; o navegador precisa saber qual.
+  static String _mime(Uint8List b) =>
+      b.length > 4 && String.fromCharCodes(b.sublist(0, 4)) == 'RIFF' ? 'audio/wav' : 'audio/mpeg';
 
   static Future<Uint8List> _fetch(String text) async {
     final r = await Supabase.instance.client.functions.invoke('moises-voz', body: {'text': text});
