@@ -12,13 +12,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../../../../core/constants/supabase_constants.dart';
 import '../../../../core/navigation/app_router.dart';
 import '../../../../core/utils/storage_upload_path.dart';
 import '../../data/support_agents_data.dart';
 import '../../domain/models/support_agent.dart';
 import '../../domain/nav_links.dart';
+import '../../domain/moises_voice.dart';
 import '../../domain/speech_text.dart';
 import '../providers/agents_providers.dart';
 import 'agent_avatar.dart';
@@ -101,7 +101,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
   final List<double> _recLevels = [];
   DateTime? _recStartedAt;
   final Map<String, Map<String, dynamic>> _audioMeta = {};
-  final FlutterTts _tts = FlutterTts();
+  final MoisesVoice _tts = MoisesVoice();
   Map<String, dynamic>? _speakingMsg;
   // 0 a 1: quanto da fala atual já foi lida (avança a onda da bolha do agente).
   double _speakProgress = 0;
@@ -240,7 +240,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     _amplitudeSub?.cancel();
     _audioPlayer.dispose();
     _audioRecorder.dispose();
-    _tts.stop();
+    _tts.dispose();
     _humanPoll?.cancel();
     super.dispose();
   }

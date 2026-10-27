@@ -6,7 +6,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -15,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/errors/app_error_handler.dart';
+import '../support_chat/domain/moises_voice.dart';
 import '../support_chat/presentation/widgets/audio_message_bubble.dart';
 
 /// K9 — Mensagens internas (supabase 20261008009600).
@@ -340,8 +340,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Duration _pos = Duration.zero;
   Duration _dur = Duration.zero;
 
-  /// "Ouvir" do chat do Moisés: lê a mensagem de texto com a voz do aparelho.
-  final _tts = FlutterTts();
+  /// "Ouvir" do chat do Moisés: lê a mensagem de texto com a voz do Moisés.
+  final _tts = MoisesVoice();
   String? _speaking;
 
   /// Web não tem pasta temporária: o áudio baixado fica na memória da aba.
@@ -389,7 +389,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _ampSub?.cancel();
     _recorder.dispose();
     _player.dispose();
-    _tts.stop();
+    _tts.dispose();
     _text.dispose();
     _scroll.dispose();
     super.dispose();
