@@ -173,6 +173,7 @@ import '../../features/kids/presentation/screens/kids_admin_dashboard_screen.dar
 import '../../features/kids/presentation/screens/kids_select_child_screen.dart';
 import '../../features/messages/messages_screens.dart';
 import '../../features/support_chat/presentation/screens/agents_center_screen.dart';
+import '../../features/support_chat/presentation/screens/admin_requests_screen.dart';
 import '../../features/support_chat/presentation/screens/support_attend_screen.dart';
 import '../../features/live_stream/presentation/screens/manage_live_stream_screen.dart';
 
@@ -1250,6 +1251,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/notifications',
       builder: (context, state) => const NotificationsListScreen(),
+    ),
+    // Solicitações do Moisés (ações administrativas): aberta a todo logado,
+    // a RPC admin_action_inbox filtra e o banco confere cada decisão.
+    GoRoute(
+      path: '/solicitacoes',
+      builder: (context, state) => const AdminRequestsScreen(),
     ),
 
     // Preferências de notificações
