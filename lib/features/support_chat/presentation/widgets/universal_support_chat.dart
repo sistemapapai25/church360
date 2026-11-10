@@ -17,7 +17,9 @@ import '../../../../core/navigation/app_router.dart';
 import '../../../../core/utils/storage_upload_path.dart';
 import '../../data/support_agents_data.dart';
 import '../../domain/models/support_agent.dart';
+import '../../domain/admin_action.dart';
 import '../../domain/nav_links.dart';
+import 'admin_action_card.dart';
 import '../../domain/moises_voice.dart';
 import '../../domain/speech_text.dart';
 import '../providers/agents_providers.dart';
@@ -1707,7 +1709,9 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
 
       final nav = parseNavLinks(replyRaw);
       final navLinks = nav.links;
-      final contactParsed = _parseContactUpdateProposal(nav.text);
+      final adminParsed = parseAdminAction(nav.text);
+      final adminAction = adminParsed.action;
+      final contactParsed = _parseContactUpdateProposal(adminParsed.text);
       final parsed = _parseTransferSuggest((contactParsed['text'] ?? '').toString());
       final reply = (parsed['text'] ?? '').toString().trim();
       final candidates = (parsed['candidates'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
@@ -1721,6 +1725,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
           'agent': _agent,
           if (candidates.isNotEmpty) 'transferCandidates': candidates,
           if (contactProposal != null) 'contactUpdateProposal': contactProposal,
+          if (adminAction != null) 'adminAction': adminAction,
           if (navLinks.isNotEmpty) 'navLinks': navLinks,
         };
         setState(() {
@@ -2070,6 +2075,7 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
     final contactProposal = (!isUser && msg['contactUpdateProposal'] is Map)
         ? Map<String, dynamic>.from(msg['contactUpdateProposal'] as Map)
         : null;
+    final adminAction = (!isUser && msg['adminAction'] is AdminAction) ? msg['adminAction'] as AdminAction : null;
     // A resposta do agente é a "fala" dele: bolha de áudio (lida pela voz do aparelho)
     // com o texto atrás de "Transcrição" (pedido do usuário, 10/10).
     // Texto do atendente chega como texto (pedido do usuário); só o áudio dele vira bolha.
@@ -2226,6 +2232,10 @@ class _UniversalSupportChatState extends ConsumerState<UniversalSupportChat> wit
                               ),
                           ],
                         ),
+                      ],
+                      if (adminAction != null) ...[
+                        const SizedBox(height: 10),
+                        AdminActionCard(key: ValueKey(adminAction.id), action: adminAction),
                       ],
                       if (!isUser && contactProposal != null) ...[
                         const SizedBox(height: 10),
